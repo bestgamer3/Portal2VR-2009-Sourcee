@@ -18,6 +18,11 @@ namespace
 }
 
 Hooks::Hooks(Game *game)
+	: Hooks(game, false)
+{
+}
+
+Hooks::Hooks(Game *game, bool renderOnly)
 {
 	if (MH_Initialize() != MH_OK)
 	{
@@ -29,6 +34,30 @@ Hooks::Hooks(Game *game)
 	m_VR = m_Game->m_VR;
 	m_PushHUDStep = -999;
 	m_PushedHud = true;
+
+	if (renderOnly)
+	{
+		// Only the primary RenderView detour is enabled in the first stereo-render
+		// pass. All other Source function hooks remain disabled.
+		if (hkRenderView.createHook(
+			(LPVOID)m_Game->m_Offsets->RenderView.address, &dRenderView) != 0)
+		{
+			MH_RemoveHook(MH_ALL_HOOKS);
+			MH_Uninitialize();
+			return;
+		}
+
+		if (hkRenderView.enableHook() != 0)
+		{
+			MH_DisableHook(MH_ALL_HOOKS);
+			MH_RemoveHook(MH_ALL_HOOKS);
+			MH_Uninitialize();
+			return;
+		}
+
+		m_Ready = true;
+		return;
+	}
 
 	if (!initSourceHooks())
 	{
@@ -235,67 +264,31 @@ ITexture* __fastcall Hooks::dGetRenderTarget(void* ecx, void* edx)
 
 void __fastcall Hooks::dRenderView(void *ecx, void *edx, CViewSetup &setup, CViewSetup &hudViewSetup, int nClearFlags, int whatToDraw)
 {
-	// A detour can be entered as soon as MinHook enables it. Do not touch the
-	// partially constructed Game/VR objects until the complete initialization
-	// sequence has published its ready flag.
-	if (!m_Game || !m_Game->m_Initialized || !m_VR || !m_VR->m_IsInitialized)
+	// The 2009 port starts with one independently verified render hook. Keep the
+	// menu on its normal backbuffer overlay; only split the actual in-game view.
+	if (!m_Game || !m_Game->m_Initialized || !m_VR || !m_VR->m_IsInitialized ||
+		!m_Game->m_EngineClient || !m_Game->m_MaterialSystem ||
+		!m_Game->m_EngineClient->IsInGame())
+	{
+		return hkRenderView.fOriginal(ecx, setup, hudViewSetup, nClearFlags, whatToDraw);
+	}
+
+	if (m_Game->m_VguiSurface && m_Game->m_VguiSurface->IsCursorVisible())
 		return hkRenderView.fOriginal(ecx, setup, hudViewSetup, nClearFlags, whatToDraw);
 
-	if (!m_VR->m_CreatedVRTextures) {
+	if (!m_VR->m_CreatedVRTextures)
 		m_VR->CreateVRTextures();
-	}
 
-	// VR::Update() was never called by the old hook list. Without this per-frame
-	// update, the HMD/controller poses and action state remain frozen at startup,
-	// and the compositor never receives the previous frame's eye textures.
-	m_VR->Update();
-
-	if (m_Game->m_VguiSurface->IsCursorVisible())
+	if (!m_VR->m_CreatedVRTextures || !m_VR->m_LeftEyeTexture || !m_VR->m_RightEyeTexture)
 		return hkRenderView.fOriginal(ecx, setup, hudViewSetup, nClearFlags, whatToDraw);
 
-	const int playerIndex = m_Game->m_EngineClient->GetLocalPlayer();
-	C_BasePlayer* localPlayer = (C_BasePlayer*)m_Game->GetClientEntity(playerIndex);
-	if (!localPlayer)
+	IMatRenderContext* renderContext = m_Game->m_MaterialSystem->GetRenderContext();
+	if (!renderContext)
 		return hkRenderView.fOriginal(ecx, setup, hudViewSetup, nClearFlags, whatToDraw);
 
-	//VPanel* g_pFullscreenRootPanel = *(VPanel**)(m_Game->m_Offsets->g_pFullscreenRootPanel.address);
-
-	IMaterialSystem* matSystem = m_Game->m_MaterialSystem;
-
-	hudViewSetup.width = m_VR->m_RenderWidth;
-	hudViewSetup.height = m_VR->m_RenderHeight;
-	hudViewSetup.fov = m_VR->m_Fov;
-	//hudViewSetup.fovViewmodel = m_VR->m_Fov;
-	hudViewSetup.m_flAspectRatio = m_VR->m_Aspect;
-
-	hudViewSetup.m_nUnscaledWidth = m_VR->m_RenderWidth;
-	hudViewSetup.m_nUnscaledHeight = m_VR->m_RenderHeight;
-
-	Vector position = setup.origin;
-
-	if (m_VR->m_ApplyPortalRotationOffset) {
-		Vector vec = position - m_VR->m_SetupOrigin;
-		float distance = sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
-
-		// Rudimentary portalling detection
-		if (distance > 35) {
-			//m_VR->m_RotationOffset.x += m_VR->m_PortalRotationOffset.x;
-			m_VR->m_RotationOffset.y += m_VR->m_PortalRotationOffset.y;
-			//m_VR->m_RotationOffset.z += m_VR->m_PortalRotationOffset.z;
-
-			m_VR->UpdateHMDAngles();
-
-			m_VR->m_ApplyPortalRotationOffset = false;
-		}
-	}
-
-	m_VR->m_SetupOrigin = position;
-
-	Vector hmdAngle = m_VR->GetViewAngle();
-	QAngle inGameAngle(hmdAngle.x, hmdAngle.y, hmdAngle.z);
-	m_Game->m_EngineClient->SetViewAngles(inGameAngle);
-
-	float aspect = setup.m_flAspectRatio;
+	const Vector baseOrigin = setup.origin;
+	const Vector hmdAngle = m_VR->GetViewAngle();
+	const QAngle hmdViewAngle(hmdAngle.x, hmdAngle.y, hmdAngle.z);
 
 	setup.x = 0;
 	setup.y = 0;
@@ -308,65 +301,46 @@ void __fastcall Hooks::dRenderView(void *ecx, void *edx, CViewSetup &setup, CVie
 	setup.m_flAspectRatio = m_VR->m_Aspect;
 	setup.zNear = 6;
 	setup.zNearViewmodel = 2;
-	setup.angles = hmdAngle;
+	setup.angles = hmdViewAngle;
+
+	hudViewSetup.width = m_VR->m_RenderWidth;
+	hudViewSetup.height = m_VR->m_RenderHeight;
+	hudViewSetup.m_nUnscaledWidth = m_VR->m_RenderWidth;
+	hudViewSetup.m_nUnscaledHeight = m_VR->m_RenderHeight;
+	hudViewSetup.fov = m_VR->m_Fov;
+	hudViewSetup.m_flAspectRatio = m_VR->m_Aspect;
 
 	CViewSetup leftEyeView = setup;
 	CViewSetup rightEyeView = setup;
 
-	// Left eye CViewSetup
-	QAngle tempAngle = QAngle(setup.angles.x, setup.angles.y, setup.angles.z);
-	leftEyeView.origin = m_VR->TraceEye((uint32_t*)localPlayer, position, m_VR->GetViewOriginLeft(position), tempAngle);
-	leftEyeView.angles.y = tempAngle.y;
-
-	//std::cout << "dRenderView - Left Start\n";
-	IMatRenderContext* rndrContext = matSystem->GetRenderContext();
-	rndrContext->SetRenderTarget(m_VR->m_LeftEyeTexture);
-	rndrContext->Release();
+	// This first pass applies the headset's measured IPD and orientation directly.
+	// Portal-plane eye clipping is intentionally deferred until those server hooks
+	// have their July 2009 calling conventions verified.
+	leftEyeView.origin = m_VR->GetViewOriginLeft(baseOrigin);
+	leftEyeView.angles = hmdViewAngle;
+	renderContext->SetRenderTarget(m_VR->m_LeftEyeTexture);
+	renderContext->Release();
 	hkRenderView.fOriginal(ecx, leftEyeView, hudViewSetup, nClearFlags, whatToDraw);
-	
-	// Right eye CViewSetup
-	tempAngle = QAngle(setup.angles.x, setup.angles.y, setup.angles.z);
-	rightEyeView.origin = m_VR->TraceEye((uint32_t*)localPlayer, position, m_VR->GetViewOriginRight(position), tempAngle);
-	rightEyeView.angles.y = tempAngle.y;
 
-	//std::cout << "dRenderView - Right Start\n";
-	rndrContext = matSystem->GetRenderContext();
-	rndrContext->SetRenderTarget(m_VR->m_RightEyeTexture);
-	rndrContext->Release();
+	renderContext = m_Game->m_MaterialSystem->GetRenderContext();
+	if (!renderContext)
+		return;
+	renderContext->SetRenderTarget(m_VR->m_RightEyeTexture);
+	renderContext->Release();
+
+	rightEyeView.origin = m_VR->GetViewOriginRight(baseOrigin);
+	rightEyeView.angles = hmdViewAngle;
 	hkRenderView.fOriginal(ecx, rightEyeView, hudViewSetup, nClearFlags, whatToDraw);
 
-	m_PushedHud = false;
-
-
-
-	rndrContext = matSystem->GetRenderContext();
-	rndrContext->SetRenderTarget(NULL);
-	rndrContext->Release();
-
-	/*rndrContext = matSystem->GetRenderContext();
-
-	ITexture* fullscreenTxt = rndrContext->GetRenderTarget();
-
-	Rect_t srcRect;
-	srcRect.x = setup.x;
-	srcRect.y = setup.y;
-	srcRect.width = 1920;
-	srcRect.height = 1080;
-
-	rndrContext->SetRenderTarget(m_VR->m_RightEyeTexture);
-	rndrContext->CopyRenderTargetToTextureEx(fullscreenTxt, 0, &srcRect, &srcRect);
-
-	rndrContext->SetRenderTarget(NULL);
-	rndrContext->Release();*/
-
-	if (m_VR->m_RenderWindow) {
-		setup.m_flAspectRatio = aspect;
-
-		//setup.width, setup.height
-		hkRenderView.fOriginal(ecx, setup, hudViewSetup, nClearFlags, whatToDraw);
+	renderContext = m_Game->m_MaterialSystem->GetRenderContext();
+	if (renderContext)
+	{
+		renderContext->SetRenderTarget(NULL);
+		renderContext->Release();
 	}
 
-
+	// DXVK's Present path resolves these D3D9 eye surfaces to Vulkan images and
+	// submits the pair to IVRCompositor after this frame has rendered.
 	m_VR->m_RenderedNewFrame = true;
 }
 
