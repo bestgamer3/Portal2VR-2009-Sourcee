@@ -55,6 +55,44 @@ namespace
             << " address=0x" << offset.address << std::dec << "\n";
     }
 
+    bool RuntimeAuditVerifyFunctionTarget(
+        std::ostream& out,
+        const char* functionName,
+        const void* functionAddress,
+        const char* expectedModuleName,
+        const std::vector<RuntimeAuditModule>& modules)
+    {
+        const RuntimeAuditModule* expectedModule = nullptr;
+        for (const RuntimeAuditModule& module : modules)
+        {
+            if (module.name == expectedModuleName)
+            {
+                expectedModule = &module;
+                break;
+            }
+        }
+
+        const auto address = reinterpret_cast<std::uintptr_t>(functionAddress);
+        bool belongsToExpectedModule = false;
+        if (expectedModule && expectedModule->info.lpBaseOfDll)
+        {
+            const auto base = reinterpret_cast<std::uintptr_t>(expectedModule->info.lpBaseOfDll);
+            const auto size = static_cast<std::uintptr_t>(expectedModule->info.SizeOfImage);
+            belongsToExpectedModule = address >= base && address - base < size;
+        }
+        const bool executable = RuntimeAuditIsExecutable(functionAddress);
+        const bool valid = belongsToExpectedModule && executable;
+
+        out << "\nRender hook target verification for "
+            << (functionName ? functionName : "(unknown)") << ": "
+            << (valid ? "PASS" : "FAIL")
+            << " address=0x" << std::hex << address << std::dec
+            << " target-module=" << RuntimeAuditDescribeAddress(functionAddress, modules)
+            << " expected-module=" << (expectedModuleName ? expectedModuleName : "(unknown)")
+            << " executable=" << (executable ? "yes" : "no") << "\n";
+        return valid;
+    }
+
     bool AllRequiredModulesLoaded()
     {
         static const char* names[] = {
@@ -246,8 +284,10 @@ Game::Game(bool diagnosticsOnly)
     }
 
     // The full gameplay hook set remains gated off. For the first in-game stereo
-    // pass, resolve one function signature and require an exact match with slot 6
-    // of the live VEngineRenderView013 interface before installing that single hook.
+    // pass, resolve the client-side CViewRender::RenderView function. Static RTTI
+    // analysis of the supplied July 2009 Client.dll identifies this address as the
+    // primary CViewRender vtable's slot 6. VEngineRenderView013 is a separate
+    // engine.dll interface; its slot 6 is not expected to point at this client function.
     GameCtorTrace("Game::Game resolving the isolated RenderView hook target.");
     m_Offsets = new Offsets();
     GameCtorTrace("Game::Game Offsets construction returned.");
@@ -266,20 +306,22 @@ Game::Game(bool diagnosticsOnly)
     initLog << "  RenderView signature: PASS, client.dll+0x"
         << std::hex << m_Offsets->RenderView.offset << std::dec << "\n";
 
-    const bool renderViewSlotMatches = RuntimeAuditVerifyInterfaceSlot(
-        initLog, "VEngineRenderView013 (engine)", m_EngineViewRender, 6,
-        reinterpret_cast<const void*>(m_Offsets->RenderView.address), modules);
-    if (!renderViewSlotMatches)
+    const bool renderViewTargetVerified = RuntimeAuditVerifyFunctionTarget(
+        initLog, "CViewRender::RenderView",
+        reinterpret_cast<const void*>(m_Offsets->RenderView.address), "client.dll", modules);
+    if (!renderViewTargetVerified)
     {
-        initLog << "Render-only initialization stopped: the live render interface did not match the signature-verified target.\n";
+        initLog << "Render-only initialization stopped: the signature-verified RenderView target "
+                   "is not executable memory inside client.dll.\n";
         initLog.flush();
         initLog.close();
-        GameCtorTrace("RenderView live vtable did not match slot 6; no hook was installed.");
+        GameCtorTrace("RenderView target failed client.dll executable-module verification; no hook was installed.");
         return;
     }
 
-    GameCtorTrace("RenderView target matched the live engine render-interface vtable.");
-    initLog << "  RenderView vtable slot 6: PASS (exact function-pointer match).\n";
+    GameCtorTrace("CViewRender::RenderView passed client.dll executable-module verification.");
+    initLog << "  RTTI evidence: CViewRender primary vtable slot 6 -> client.dll+0x"
+        << std::hex << m_Offsets->RenderView.offset << std::dec << " (static audit).\n";
 
     m_VR = new VR(this, true);
     if (!m_VR || !m_VR->m_IsInitialized)
