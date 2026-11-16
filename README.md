@@ -2,7 +2,7 @@
 
 **Target:** the supplied July 2009 Portal 2 PE32/i386 build, using SteamVR/OpenVR and Oculus Rift CV1.  
 **Toolchain:** Visual Studio 2026 with MSVC v145, Windows 10/11 SDK, x86 target.  
-**Status:** build-prepared development source with read-only runtime diagnostics. It is **not a playable VR mod** yet.
+**Status:** integrated OpenVR + D3D9 menu-overlay bring-up. The Portal 2 main-menu backbuffer is routed to a SteamVR overlay through DXVK `PresentEx`. The July 2009 `RenderView` stereo detour and gameplay/controller hooks remain disabled until their x86 ABIs are verified. This is not yet a complete playable VR mod.
 
 The latest source package includes the full `L4D2VR` project, OpenVR headers/import library/runtime DLL, PowerShell dependency/build helpers, static audit tools, and the source review notes. DXVK's custom D3D9-VR branch and MinHook source are bootstrapped by the script.
 
@@ -39,25 +39,29 @@ For a clean rebuild:
 
 The solution configuration is `x86`, mapped to project `Win32`. Do not pass `Platform=Win32` to MSBuild at the solution level.
 
-## Runtime diagnostics
+## Runtime diagnostics and VR menu bring-up
 
-The source supports `-vrdiagnostics`. With the D3D9 proxy deployed in the correct game `bin` directory and the runtime `VR` folder in the game working directory, launch the 2009 game with `-vrdiagnostics`. The module waits for the Source DLLs, reports `CreateInterface` factory results, performs read-only vtable pointer inspection, and logs every one of the 37 hook target signature results in:
+The source supports `-vrdiagnostics`. With the D3D9 proxy deployed in the correct game `bin` directory and the runtime `VR` folder in the game working directory, launch the 2009 game with `-vrdiagnostics`. The module waits for the Source DLLs, reports `CreateInterface` factory results, performs read-only vtable pointer inspection, and logs the 37 target-signature checks in:
 
 ```text
 portal2vr_2009_init.log
 ```
 
-Diagnostics do not call interface methods, initialize gameplay VR, or install detours. This is deliberate: the source will not execute unverified engine hooks.
+A normal `-insecure` launch now initializes OpenVR as a scene application before checking the gameplay-hook ABI gate. It also initializes the D3D9/Vulkan bridge and creates the main-menu overlay without installing a Source detour. DXVK's `PresentEx` path refreshes the current backbuffer before Present, waits for the D3D9/Vulkan work to complete, and calls `VR::Update()` once per presented frame. The menu image is therefore independent of the unverified `RenderView` detour.
+
+The `RenderView` detour still contains the two-eye render path, but it remains disabled while `PORTAL2_2009_FUNCTION_HOOK_ABIS_VERIFIED` is `false`. In this branch, the expected first milestone is the Portal 2 main menu as a floating SteamVR overlay in the Rift; stereoscopic gameplay and controllers are not enabled yet.
 
 ## What changed in this source review
 
-- Added a per-frame `VR::Update()` call from the `RenderView` detour. Before this, the source defined pose/action updates and compositor submission but did not call `VR::Update()` from any source call site.
+- Moved the single per-frame `VR::Update()` call to DXVK `PresentEx`, so it runs for the main menu even when the Source `RenderView` detour is disabled. The stereo hook only marks the rendered eye pair ready for the following Present.
 - Added a startup-ready guard to the render detour, player-index bounds checks, null checks for player/entity and shoot-position results, and restoration of the active user-command player index after the original network processing call.
 - Corrected user-command parsing so the custom controller payload is consumed when its marker is present even when the received entity index cannot be mapped into the local 24-player table. This prevents leaving unread custom bytes in the bit buffer.
 - Added validation for SteamVR projection values, the overlay interface/creation result, action-manifest path and action handles, and application-manifest registration.
 - Invalidated render targets only when transitioning between menu and gameplay, avoiding repeated texture allocation from the new per-frame update call.
 - Removed an unused material render-context call from VR overlay setup.
+- Initialized OpenVR and the D3D9 menu-overlay bridge before the fail-closed gameplay-hook ABI gate. This allows SteamVR to recognize the scene app and display the actual game backbuffer without installing any Source detour.
 - Kept the original fail-closed verification gates. No unverified 2009 function hook is force-enabled.
+- Updated the DXVK helper patch to capture the current menu backbuffer before swapchain Present, refresh the OpenVR texture metadata, null-check the Present bridge, and release the temporary backbuffer COM reference.
 - Kept the `CViewSetup::STR()` helper safe: it returns an owned `std::string` and uses matching format specifiers.
 
 ## Current 2009 binary evidence
