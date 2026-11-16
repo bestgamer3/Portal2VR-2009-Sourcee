@@ -422,7 +422,7 @@ void VR::CreateVRTextures()
         m_D9BlankSurface != nullptr;
 
     if (!m_CreatedVRTextures)
-        std::cerr << "VR eye target creation failed; keeping the normal game render path active.\\n";
+        std::cerr << "VR eye target creation failed; keeping the normal game render path active.\n";
 }
 
 void VR::SubmitVRTextures()
