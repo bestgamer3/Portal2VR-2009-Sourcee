@@ -71,6 +71,24 @@ namespace
     }
 }
 
+// Keep the SEH boundary in a function that has no C++ objects requiring unwinding.
+static void ConstructGameForDiagnostics(bool diagnosticsOnly)
+{
+    g_Game = new Game(diagnosticsOnly);
+}
+
+static void ConstructGameWithSeh(bool diagnosticsOnly)
+{
+    __try
+    {
+        ConstructGameForDiagnostics(diagnosticsOnly);
+    }
+    __except (LogLoaderException(GetExceptionInformation()))
+    {
+        LoaderLog("Game constructor terminated by a structured exception.");
+    }
+}
+
 DWORD WINAPI InitPortal2VR2009(LPVOID parameter)
 {
     (void)parameter;
@@ -128,14 +146,7 @@ DWORD WINAPI InitPortal2VR2009(LPVOID parameter)
     }
 
     LoaderLog("About to construct Game; diagnostics log should be created in the working directory.");
-    __try
-    {
-        g_Game = new Game(diagnosticsOnly);
-    }
-    __except (LogLoaderException(GetExceptionInformation()))
-    {
-        LoaderLog("Game constructor terminated by a structured exception.");
-    }
+    ConstructGameWithSeh(diagnosticsOnly);
     LoaderLog("Game constructor returned.");
 
     if (g_LoaderLog != INVALID_HANDLE_VALUE)
