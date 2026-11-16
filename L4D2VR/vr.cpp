@@ -39,11 +39,16 @@ VR::VR(Game *game, bool renderOnly)
         return;
     }
 
-    m_Input = vr::VRInput();
+    // Render-only bring-up needs the HMD system and compositor, not the SteamVR
+    // action/input interface. This avoids requiring controller bindings or an
+    // action manifest before we have verified the 2009 gameplay input hooks.
+    if (!m_RenderOnlyMode)
+        m_Input = vr::VRInput();
+
     m_System = vr::OpenVRInternal_ModuleContext().VRSystem();
-    if (!m_Input || !m_System)
+    if (!m_System || (!m_RenderOnlyMode && !m_Input))
     {
-        Game::errorMsg("SteamVR did not provide the required input/system interfaces.");
+        Game::errorMsg("SteamVR did not provide the required system/input interfaces.");
         return;
     }
 
@@ -86,11 +91,17 @@ VR::VR(Game *game, bool renderOnly)
     m_Fov = 2.0f * atan(tanHalfFov[0]) * 360 / (3.14159265358979323846 * 2);
 
     InstallApplicationManifest("manifest.vrmanifest");
-    if (SetActionManifest("action_manifest.json") != 0)
-        return;
 
-    std::thread configParser(&VR::WaitForConfigUpdate, this);
-    configParser.detach();
+    // Action manifests and user input configuration are only loaded by the
+    // full gameplay VR path. The render-only pass uses built-in safe defaults.
+    if (!m_RenderOnlyMode)
+    {
+        if (SetActionManifest("action_manifest.json") != 0)
+            return;
+
+        std::thread configParser(&VR::WaitForConfigUpdate, this);
+        configParser.detach();
+    }
 
     // Do not let initialization wait forever if the D3D9 proxy/device was not
     // created by the target game. This timeout is only reached on the normal VR path.
@@ -132,7 +143,10 @@ VR::VR(Game *game, bool renderOnly)
     m_Overlay->SetOverlayCurvature(m_MainMenuHandle, 0.15f);
     m_Overlay->SetOverlayMouseScale(m_MainMenuHandle, &mouseScaleMenu);
 
-    UpdatePosesAndActions();
+    if (m_RenderOnlyMode)
+        vr::VRCompositor()->WaitGetPoses(m_Poses, vr::k_unMaxTrackedDeviceCount, nullptr, 0);
+    else
+        UpdatePosesAndActions();
 
     m_IsInitialized = true;
     m_IsVREnabled = true;
@@ -280,7 +294,7 @@ void VR::SetScreenSizeOverride(bool bState) {
 void VR::Update()
 {
     if (!m_IsInitialized || !m_Game || !m_Game->m_Initialized ||
-        !m_System || !m_Input || !m_Overlay || !vr::VRCompositor())
+        !m_System || (!m_RenderOnlyMode && !m_Input) || !m_Overlay || !vr::VRCompositor())
         return;
 
     
