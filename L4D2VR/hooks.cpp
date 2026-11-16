@@ -276,6 +276,10 @@ void __fastcall Hooks::dRenderView(void *ecx, void *edx, CViewSetup &setup, CVie
 	if (m_Game->m_VguiSurface && m_Game->m_VguiSurface->IsCursorVisible())
 		return hkRenderView.fOriginal(ecx, setup, hudViewSetup, nClearFlags, whatToDraw);
 
+	// Advance OpenVR once per rendered game view: submit the previous eye pair,
+	// refresh the HMD pose, and keep the compositor synchronized with this frame.
+	m_VR->Update();
+
 	if (!m_VR->m_CreatedVRTextures)
 		m_VR->CreateVRTextures();
 
