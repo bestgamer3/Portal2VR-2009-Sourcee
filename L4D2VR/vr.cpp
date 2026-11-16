@@ -339,11 +339,11 @@ void VR::UpdateRenderTracking()
 
     vr::VRCompositor()->WaitGetPoses(m_Poses, vr::k_unMaxTrackedDeviceCount, nullptr, 0);
 
-    const vr::TrackedDevicePose_t& hmdPose = m_Poses[vr::k_unTrackedDeviceIndex_Hmd];
+    vr::TrackedDevicePose_t& hmdPose = m_Poses[vr::k_unTrackedDeviceIndex_Hmd];
     if (!hmdPose.bPoseIsValid)
         return;
 
-    GetPoseData(const_cast<vr::TrackedDevicePose_t&>(hmdPose), m_HmdPose);
+    GetPoseData(hmdPose, m_HmdPose);
 
     // Establish a stable origin at the user's current standing position so the
     // first pose does not move the in-game camera by the room's absolute offset.
