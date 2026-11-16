@@ -51,9 +51,52 @@ if (!$content.Contains($newGuard) -or !$content.Contains($signature + $newline +
     throw 'SetViewport safety patch verification failed.'
 }
 
+$oldResolve = @(
+    '    if (g_Game && g_Game->m_VR && g_Game->m_VR->m_CreatedVRTextures) {'
+    '      ResolveImage(GetCommonTexture(g_Game->m_VR->m_D9LeftEyeSurface));'
+    '      ResolveImage(GetCommonTexture(g_Game->m_VR->m_D9RightEyeSurface));'
+    '    }'
+) -join $newline
+$newResolve = @(
+    '    if (g_Game != nullptr && g_Game->m_VR != nullptr &&'
+    '        g_Game->m_VR->m_CreatedVRTextures &&'
+    '        g_Game->m_VR->m_D9LeftEyeSurface != nullptr &&'
+    '        g_Game->m_VR->m_D9RightEyeSurface != nullptr) {'
+    '      ResolveImage(GetCommonTexture(g_Game->m_VR->m_D9LeftEyeSurface));'
+    '      ResolveImage(GetCommonTexture(g_Game->m_VR->m_D9RightEyeSurface));'
+    '    }'
+) -join $newline
+
+$oldWait = '    g_D3DVR9->WaitDeviceIdle();'
+$newWait = @(
+    '    if (g_D3DVR9 != nullptr)'
+    '      g_D3DVR9->WaitDeviceIdle();'
+) -join $newline
+
+$hasResolveGuard = $content.Contains($newResolve)
+$hasWaitGuard = $content.Contains($newWait)
+
+if (!$hasResolveGuard) {
+    if (!$content.Contains($oldResolve)) {
+        throw 'Could not find the expected PresentEx eye-surface resolve block. Refusing to modify an unknown DXVK source version.'
+    }
+    $content = $content.Replace($oldResolve, $newResolve)
+}
+
+if (!$hasWaitGuard) {
+    if (!$content.Contains($oldWait)) {
+        throw 'Could not find the expected PresentEx D3D9 bridge wait call.'
+    }
+    $content = $content.Replace($oldWait, $newWait)
+}
+
+if (!$content.Contains($newResolve) -or !$content.Contains($newWait)) {
+    throw 'PresentEx VR surface safety patch verification failed.'
+}
+
 if ($content -ne $originalContent) {
     [System.IO.File]::WriteAllText($sourcePath, $content, (New-Object System.Text.UTF8Encoding($false)))
-    Write-Host 'Applied SetViewport null/VR-state safety patch to DXVK.' -ForegroundColor Green
+    Write-Host 'Applied SetViewport and PresentEx VR-safety patches to DXVK.' -ForegroundColor Green
 } else {
-    Write-Host 'SetViewport safety patch is already applied.' -ForegroundColor Green
+    Write-Host 'SetViewport and PresentEx VR-safety patches are already applied.' -ForegroundColor Green
 }
