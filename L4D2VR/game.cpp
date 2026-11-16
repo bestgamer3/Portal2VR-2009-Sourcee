@@ -115,33 +115,26 @@ Game::Game(bool diagnosticsOnly)
     initLog << "Portal 2 VR - July 2009 compatibility runtime audit\n";
     initLog << "Mode: " << (m_DiagnosticsOnly ? "diagnostics only" : "VR initialization") << "\n";
     initLog << "No detours are installed by the diagnostics-only mode.\n\n";
+    initLog.flush();
+    GameCtorTrace("Game::Game wrote and flushed initial audit header.");
 
-    // Use one global deadline. The previous per-module wait could take twelve minutes.
-    const ULONGLONG deadline = GetTickCount64() + 180000ULL;
-    GameCtorTrace("Game::Game waiting for required Source modules (maximum 180 seconds).");
-    LogRequiredModuleStatus("before wait");
-    ULONGLONG nextModuleReport = GetTickCount64() + 1000ULL;
-    while (!AllRequiredModulesLoaded() && GetTickCount64() < deadline)
-    {
-        if (GetTickCount64() >= nextModuleReport)
-        {
-            LogRequiredModuleStatus("still waiting");
-            nextModuleReport = GetTickCount64() + 1000ULL;
-        }
-        Sleep(250);
-    }
-    LogRequiredModuleStatus(AllRequiredModulesLoaded() ? "after wait: all present" : "after wait: timeout");
-    GameCtorTrace(AllRequiredModulesLoaded() ? "Game::Game required Source modules are loaded." :
-        "Game::Game timed out waiting for required Source modules.");
-
+    // Do not wait inside the game's early startup window. The Source client/server
+    // DLLs may be loaded later (for example, when the Portal 2 game DLL is activated).
+    // Returning here is intentionally fail-closed: no factory calls, signature scans,
+    // VR initialization, or hooks are attempted until all required modules are present.
+    LogRequiredModuleStatus("at constructor startup");
     if (!AllRequiredModulesLoaded())
     {
-        initLog << "Initialization stopped: at least one required Source module did not load within 180 seconds.\n";
+        initLog << "Initialization deferred safely: one or more required Source modules "
+                   "were not loaded when the proxy startup thread ran.\n";
+        initLog << "No wait loop, interface factory calls, signature scans, VR initialization, "
+                   "or hooks were attempted.\n";
+        initLog.flush();
         initLog.close();
-        if (!m_DiagnosticsOnly)
-            errorMsg("Timed out waiting for required Portal 2 modules.\nSee portal2vr_2009_init.log.");
+        GameCtorTrace("Game::Game returning safely because required Source modules are not ready.");
         return;
     }
+    GameCtorTrace("Game::Game all required Source modules are already loaded.");
 
     m_BaseClient = reinterpret_cast<uintptr_t>(GetModuleHandleA("client.dll"));
     m_BaseEngine = reinterpret_cast<uintptr_t>(GetModuleHandleA("engine.dll"));
