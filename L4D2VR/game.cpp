@@ -320,8 +320,23 @@ Game::Game(bool diagnosticsOnly)
     }
 
     GameCtorTrace("CViewRender::RenderView passed client.dll executable-module verification.");
+
+    // Executable-address validation and RTTI identify a candidate function, but
+    // they do not establish the detour ABI. Keep the runtime hook fail-closed
+    // until the July 2009 function signature/calling convention is independently
+    // verified. In particular, do not initialize OpenVR or enable MinHook here.
+    if (!PORTAL2_2009_FUNCTION_HOOK_ABIS_VERIFIED)
+    {
+        initLog << "RenderView candidate identified, but hook ABI verification is still CLOSED.\\n";
+        initLog << "VR initialization and detour installation skipped to preserve the normal game menu.\\n";
+        initLog.flush();
+        initLog.close();
+        GameCtorTrace("RenderView ABI gate is closed; no VR session or detour was installed.");
+        return;
+    }
+
     initLog << "  RTTI evidence: CViewRender primary vtable slot 6 -> client.dll+0x"
-        << std::hex << m_Offsets->RenderView.offset << std::dec << " (static audit).\n";
+        << std::hex << m_Offsets->RenderView.offset << std::dec << " (static audit).\\n";
 
     m_VR = new VR(this, true);
     if (!m_VR || !m_VR->m_IsInitialized)
