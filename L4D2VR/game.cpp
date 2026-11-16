@@ -271,15 +271,56 @@ Game::Game(bool diagnosticsOnly)
         GameCtorTrace("Optional client VEngineRenderView013 is unavailable; continuing.");
     }
 
-    if (!m_ClientEntityList || !m_EngineTrace || !m_EngineClient || !m_MaterialSystem ||
-        !m_EngineViewRender || !m_ModelInfo || !m_ModelRender ||
-        !m_VguiInput || !m_VguiSurface)
+    // The menu-overlay path only needs the engine client and material system.
+    // Keep the other interfaces optional here: gameplay hooks remain separately gated.
+    if (!m_EngineClient || !m_MaterialSystem)
     {
-        initLog << "\nInitialization stopped: one or more required Source interfaces were not created.\n";
+        initLog << "\nInitialization stopped: the engine client or material-system interface was not created.\n";
         initLog.flush();
         initLog.close();
-        GameCtorTrace("Game::Game stopping because a required Source interface was not created.");
-        errorMsg("A required Source interface could not be created.\nSee portal2vr_2009_init.log.");
+        GameCtorTrace("Game::Game stopping because a core menu-render interface was not created.");
+        errorMsg("A required engine/material-system interface could not be created.\nSee portal2vr_2009_init.log.");
+        return;
+    }
+
+    GameCtorTrace("Initializing OpenVR and the D3D9 menu-overlay bridge without Source detours.");
+    initLog << "\nInitializing OpenVR scene session and D3D9 menu-overlay bridge.\n";
+    initLog.flush();
+    m_VR = new VR(this, true);
+    if (!m_VR || !m_VR->m_IsInitialized)
+    {
+        initLog << "OpenVR/D3D9 menu-overlay initialization failed. No Source detours were installed.\n";
+        initLog.flush();
+        initLog.close();
+        GameCtorTrace("OpenVR/D3D9 menu-overlay initialization failed.");
+        return;
+    }
+
+    // The DXVK PresentEx bridge now owns the per-frame compositor update.
+    // Mark the VR bridge ready before the first PresentEx callback can use it.
+    m_Initialized = true;
+    initLog << "OpenVR scene session initialized. D3D9 menu overlay is ready.\n";
+    initLog << "Per-frame compositor updates are driven by the DXVK D3D9 PresentEx bridge.\n";
+    GameCtorTrace("OpenVR scene session and D3D9 menu-overlay bridge initialized.");
+
+    // RenderView and all gameplay hooks remain disabled until their July 2009
+    // calling conventions and object-layout assumptions are verified.
+    if (!PORTAL2_2009_FUNCTION_HOOK_ABIS_VERIFIED)
+    {
+        initLog << "RenderView stereo detour ABI gate is CLOSED; no Source detours were installed.\n";
+        initLog << "The game menu is sent to SteamVR as a D3D9 backbuffer overlay. Gameplay stereo remains disabled.\n";
+        initLog.close();
+        GameCtorTrace("Menu-only VR mode active; RenderView/gameplay detours remain disabled.");
+        return;
+    }
+
+    // Only the full gameplay-hook path requires these additional interfaces.
+    if (!m_ClientEntityList || !m_EngineTrace || !m_EngineViewRender ||
+        !m_ModelInfo || !m_ModelRender || !m_VguiInput || !m_VguiSurface)
+    {
+        initLog << "Gameplay VR initialization stopped: one or more optional gameplay interfaces were not created.\n";
+        initLog.close();
+        GameCtorTrace("Gameplay VR initialization stopped because optional gameplay interfaces were unavailable.");
         return;
     }
 
@@ -321,32 +362,13 @@ Game::Game(bool diagnosticsOnly)
 
     GameCtorTrace("CViewRender::RenderView passed client.dll executable-module verification.");
 
-    // Executable-address validation and RTTI identify a candidate function, but
-    // they do not establish the detour ABI. Keep the runtime hook fail-closed
-    // until the July 2009 function signature/calling convention is independently
-    // verified. In particular, do not initialize OpenVR or enable MinHook here.
-    if (!PORTAL2_2009_FUNCTION_HOOK_ABIS_VERIFIED)
-    {
-        initLog << "RenderView candidate identified, but hook ABI verification is still CLOSED.\\n";
-        initLog << "VR initialization and detour installation skipped to preserve the normal game menu.\\n";
-        initLog.flush();
-        initLog.close();
-        GameCtorTrace("RenderView ABI gate is closed; no VR session or detour was installed.");
-        return;
-    }
+    // The hook ABI gate was checked before the OpenVR/menu bridge was created.
+    // Reaching this point means the full gameplay-hook path was explicitly enabled.
 
     initLog << "  RTTI evidence: CViewRender primary vtable slot 6 -> client.dll+0x"
         << std::hex << m_Offsets->RenderView.offset << std::dec << " (static audit).\\n";
 
-    m_VR = new VR(this, true);
-    if (!m_VR || !m_VR->m_IsInitialized)
-    {
-        initLog << "\nInitialization stopped: OpenVR/D3D9-Vulkan bridge setup did not complete.\n";
-        initLog.flush();
-        initLog.close();
-        GameCtorTrace("Render-only VR session initialization failed.");
-        return;
-    }
+    // OpenVR and the D3D9 bridge were initialized before resolving any Source detours.
 
     m_Hooks = new Hooks(this, true);
     if (!m_Hooks || !m_Hooks->IsReady())
