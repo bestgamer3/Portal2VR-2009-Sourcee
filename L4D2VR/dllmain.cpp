@@ -89,6 +89,7 @@ static void ConstructGameForDiagnostics(bool diagnosticsOnly)
 
 static void ConstructGameWithSeh(bool diagnosticsOnly)
 {
+    LoaderLog("ConstructGameWithSeh entered.");
     __try
     {
         ConstructGameForDiagnostics(diagnosticsOnly);
@@ -101,8 +102,19 @@ static void ConstructGameWithSeh(bool diagnosticsOnly)
 
 DWORD WINAPI InitPortal2VR2009(LPVOID parameter)
 {
-    (void)parameter;
     OpenLoaderLog();
+    LoaderLog("BUILD_ID: p2vr-diag-module-path-20261116-a");
+
+    char loadedModulePath[MAX_PATH]{};
+    if (parameter && GetModuleFileNameA(static_cast<HMODULE>(parameter), loadedModulePath, MAX_PATH))
+    {
+        LoaderLog("Loaded Portal2VR proxy DLL:");
+        LoaderLog(loadedModulePath);
+    }
+    else
+    {
+        LoaderLog("Could not resolve the loaded Portal2VR proxy DLL path.");
+    }
 
 #ifdef _DEBUG
     AllocConsole();
@@ -156,8 +168,9 @@ DWORD WINAPI InitPortal2VR2009(LPVOID parameter)
     }
 
     LoaderLog("About to construct Game; diagnostics log should be created in the working directory.");
+    LoaderLog("Calling ConstructGameWithSeh now.");
     ConstructGameWithSeh(diagnosticsOnly);
-    LoaderLog("Game constructor returned.");
+    LoaderLog("Returned from ConstructGameWithSeh.");
 
     if (g_LoaderLog != INVALID_HANDLE_VALUE)
     {
