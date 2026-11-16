@@ -74,7 +74,17 @@ namespace
 // Keep the SEH boundary in a function that has no C++ objects requiring unwinding.
 static void ConstructGameForDiagnostics(bool diagnosticsOnly)
 {
-    g_Game = new Game(diagnosticsOnly);
+    LoaderLog("ConstructGameForDiagnostics entered.");
+    try
+    {
+        g_Game = new Game(diagnosticsOnly);
+    }
+    catch (...)
+    {
+        LoaderLog("C++ exception caught while constructing Game.");
+        return;
+    }
+    LoaderLog("new Game completed.");
 }
 
 static void ConstructGameWithSeh(bool diagnosticsOnly)
