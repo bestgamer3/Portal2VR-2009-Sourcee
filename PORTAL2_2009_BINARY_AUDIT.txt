@@ -1,0 +1,80 @@
+PORTAL 2 PE32 / FUNCTION SIGNATURE AUDIT
+========================================
+Binary folder: New folder (folder supplied by caller)
+
+client.dll: PE32/i386; timestamp 2009-07-28 22:11:58 UTC; ImageBase 0x10000000; SizeOfImage 0x64F000
+  CreateInterface export: yes
+  interface string VClientEntityList003: present
+  interface string VEngineRenderView013: present
+engine.dll: PE32/i386; timestamp 2009-07-28 22:06:37 UTC; ImageBase 0x10000000; SizeOfImage 0x6A3000
+  CreateInterface export: yes
+  interface string EngineTraceClient003: present
+  interface string VEngineClient013: present
+  interface string VEngineRenderView013: present
+  interface string VModelInfoClient004: present
+  interface string VEngineModel016: present
+server.dll: PE32/i386; timestamp 2009-07-29 00:24:36 UTC; ImageBase 0x10000000; SizeOfImage 0x72C000
+  CreateInterface export: yes
+materialsystem.dll: PE32/i386; timestamp 2009-07-28 22:11:32 UTC; ImageBase 0x10000000; SizeOfImage 0x135000
+  CreateInterface export: yes
+  interface string VMaterialSystem080: present
+vgui2.dll: PE32/i386; timestamp 2009-07-28 01:16:23 UTC; ImageBase 0x10000000; SizeOfImage 0x63000
+  CreateInterface export: yes
+  interface string VGUI_InputInternal001: present
+vguimatsurface.dll: PE32/i386; timestamp 2009-07-28 01:16:23 UTC; ImageBase 0x10000000; SizeOfImage 0xF5000
+  CreateInterface export: yes
+  interface string VGUI_Surface031: present
+hl2.exe: PE32/i386; timestamp 2009-07-16 01:25:13 UTC; ImageBase 0x00400000; SizeOfImage 0x1A000
+
+ACTIVE FUNCTION SIGNATURES (executable sections only)
+------------------------------------------------------
+GetFullScreenTexture               old=0x1A83F0  matches=0 candidate(s)=-
+RenderView                         old=0x181120  exact signature match
+g_pClientMode                      old=0x28A600  matches=2 candidate(s)=0x1155, 0x19B8
+CalcViewModelView                  old=0x27D750  matches=0 candidate(s)=-
+CreateMove                         old=0x095970  exact signature match
+WriteUsercmd                       old=0x1C2060  matches=0 candidate(s)=-
+g_pppInput                         old=0x0D12A0  matches=0 candidate(s)=-
+PrePushRenderTarget                old=0x0A8C80  matches=0 candidate(s)=-
+ReadUserCmd                        old=0x205100  matches=0 candidate(s)=-
+ProcessUsercmds                    old=0x170300  matches=0 candidate(s)=-
+CBaseEntity_entindex               old=0x01A150  exact signature match
+EyePosition                        old=0x0F40E0  matches=0 candidate(s)=-
+PushRenderTargetAndViewport        old=0x02D5F0  matches=0 candidate(s)=-
+PopRenderTargetAndViewport         old=0x02CE80  matches=0 candidate(s)=-
+TraceFirePortalServer              old=0x400D50  matches=0 candidate(s)=-
+CWeaponPortalgun_FirePortal        old=0x401370  matches=0 candidate(s)=-
+VGui_Paint                         old=0x115CE0  matches=0 candidate(s)=-
+PlayerPortalled                    old=0x27C9D0  matches=0 candidate(s)=-
+DrawSelf                           old=0x12CC90  matches=0 candidate(s)=-
+ClipTransform                      old=0x1DD130  matches=0 candidate(s)=-
+VGui_GetClientDLLRootPanel         old=0x26EDF0  matches=0 candidate(s)=-
+g_pFullscreenRootPanel             old=0x26EE20  matches=2 candidate(s)=0x13E2, 0x15E6E
+CreatePingPointer                  old=0x280660  matches=0 candidate(s)=-
+GetPortalPlayer                    old=0x08DCA0  matches=0 candidate(s)=-
+PrecacheParticleSystem             old=0x16DF40  matches=0 candidate(s)=-
+Precache                           old=0x35A2C0  matches=2 candidate(s)=0x1A27A, 0x1A284
+SetControlPoint                    old=0x17BD30  matches=0 candidate(s)=-
+SetDrawOnlyForSplitScreenUser      old=0x17B9E0  matches=0 candidate(s)=-
+StopEmission                       old=0x17B6A0  matches=0 candidate(s)=-
+CHudCrosshair_ShouldDraw           old=0x0E7BA0  exact signature match
+UTIL_Portal_FirstAlongRay          old=0x377200  matches=0 candidate(s)=-
+UTIL_IntersectRayWithPortal        old=0x376730  matches=0 candidate(s)=-
+UTIL_Portal_AngleTransform         old=0x375CA0  matches=0 candidate(s)=-
+Weapon_ShootPosition               old=0x1033C0  matches=0 candidate(s)=-
+ComputeError                       old=0x3C8140  matches=0 candidate(s)=-
+UpdateObject                       old=0x3CA010  matches=0 candidate(s)=-
+UpdateObjectVM                     old=0x3CBB10  matches=0 candidate(s)=-
+RotateObject                       old=0x3C7890  matches=0 candidate(s)=-
+EyeAngles                          old=0x103A50  matches=0 candidate(s)=-
+MatrixBuildPerspectiveX            old=0x2737E0  matches=0 candidate(s)=-
+GetFOV                             old=0x2772B0  matches=0 candidate(s)=-
+GetDefaultFOV                      old=0x279020  matches=0 candidate(s)=-
+GetViewModelFOV                    old=0x0964C0  exact signature match
+GetOwner                           old=0x0D7550  matches=0 candidate(s)=-
+
+Notes:
+- Interface strings are evidence of identifiers embedded in a module, not proof that
+  CreateInterface accepts them or that the consuming SDK vtable layout is compatible.
+- Signature candidates must be checked in disassembly and at runtime before hooking.
+- This audit does not install hooks, modify binaries, or build a DLL.

@@ -1,0 +1,20 @@
+PORTAL 2 JULY 2009 — MSVC RTTI / VTABLE AUDIT
+Static analysis only; no function calls or hooks are executed.
+
+Client.dll: .?AVCViewRender@@
+  primary; COL RVA 0x47A78C; vtable RVA 0x3C20C4; 41 executable slots
+    slot 6: RVA 0x181120
+Client.dll: .?AVClientModePortalNormal@@
+  primary; COL RVA 0x480DAC; vtable RVA 0x3DE31C; 47 executable slots
+    slot 22: RVA 0x95970
+    slot 34: RVA 0x964C0
+  base-subobject offset 4; COL RVA 0x480E04; vtable RVA 0x3DE308; 3 executable slots
+    slot 22: unavailable
+    slot 34: unavailable
+
+Server.dll: .?AVCPortal_Player@@
+  primary; COL RVA 0x5463D4; vtable RVA 0x4EA28C; 80 executable slots
+    slot 46: RVA 0x1A150
+  base-subobject offset 4564; COL RVA 0x54644C; vtable RVA 0x4EA27C; 3 executable slots
+    slot 46: unavailable
+
