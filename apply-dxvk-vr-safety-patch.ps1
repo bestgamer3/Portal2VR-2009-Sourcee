@@ -7,24 +7,27 @@ if (!(Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
 }
 
 $content = [System.IO.File]::ReadAllText($sourcePath)
-$newline = [Environment]::NewLine
+$newline = [regex]::Match($content, "\r\n|\n").Value
+if ([string]::IsNullOrEmpty($newline)) {
+    $newline = [Environment]::NewLine
+}
 
 $oldGuard = 'if (g_Game && !g_Game->m_EngineClient->IsInGame())'
-$newGuard = @'
-if (pViewport != nullptr
-        && g_Game != nullptr
-        && g_Game->m_Initialized
-        && g_Game->m_EngineClient != nullptr
-        && g_Game->m_VR != nullptr
-        && g_Game->m_VR->m_IsInitialized
-        && !g_Game->m_EngineClient->IsInGame())
-'@.TrimEnd()
+$newGuard = @(
+    'if (pViewport != nullptr'
+    '        && g_Game != nullptr'
+    '        && g_Game->m_Initialized'
+    '        && g_Game->m_EngineClient != nullptr'
+    '        && g_Game->m_VR != nullptr'
+    '        && g_Game->m_VR->m_IsInitialized'
+    '        && !g_Game->m_EngineClient->IsInGame())'
+) -join $newline
 
 $signature = 'HRESULT STDMETHODCALLTYPE D3D9DeviceEx::SetViewport(const D3DVIEWPORT9* pViewport) {'
-$nullCheck = @'
-    if (pViewport == nullptr)
-      return D3DERR_INVALIDCALL;
-'@.TrimEnd()
+$nullCheck = @(
+    '    if (pViewport == nullptr)'
+    '      return D3DERR_INVALIDCALL;'
+) -join $newline
 
 $originalContent = $content
 $hasGuard = $content.Contains($newGuard)
