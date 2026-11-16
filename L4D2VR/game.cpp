@@ -14,6 +14,33 @@
 
 namespace
 {
+    void GameCtorTrace(const char* message)
+    {
+        OutputDebugStringA(message ? message : "(null)");
+        OutputDebugStringA("\\r\\n");
+
+        char tempPath[MAX_PATH]{};
+        const DWORD length = GetTempPathA(MAX_PATH, tempPath);
+        if (length == 0 || length >= MAX_PATH)
+            return;
+
+        char logPath[MAX_PATH]{};
+        if (sprintf_s(logPath, "%sPortal2VR_2009_game_ctor.log", tempPath) < 0)
+            return;
+
+        HANDLE file = CreateFileA(logPath, FILE_APPEND_DATA,
+            FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
+            FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (file == INVALID_HANDLE_VALUE)
+            return;
+
+        DWORD written = 0;
+        WriteFile(file, message ? message : "(null)",
+            static_cast<DWORD>(lstrlenA(message ? message : "(null)")), &written, nullptr);
+        WriteFile(file, "\\r\\n", 2, &written, nullptr);
+        CloseHandle(file);
+    }
+
     void WriteOffsetStatus(std::ostream& out, const char* name, const Offset& offset)
     {
         out << "  " << name << " [" << offset.moduleName << "] candidateRVA=0x"
@@ -46,11 +73,15 @@ namespace
 Game::Game(bool diagnosticsOnly)
     : m_DiagnosticsOnly(diagnosticsOnly)
 {
+    GameCtorTrace("Game::Game entered.");
     // Some original SDK helper wrappers read g_Game during initialization.
     // Publish the partially constructed object before any VR/helper setup.
     g_Game = this;
+    GameCtorTrace("Game::Game assigned g_Game.");
 
     std::ofstream initLog("portal2vr_2009_init.log", std::ios::out | std::ios::trunc);
+    GameCtorTrace(initLog ? "Game::Game opened portal2vr_2009_init.log." :
+        "Game::Game FAILED to open portal2vr_2009_init.log.");
     if (!initLog)
     {
         errorMsg("Could not create portal2vr_2009_init.log in the game working directory.");
@@ -63,8 +94,11 @@ Game::Game(bool diagnosticsOnly)
 
     // Use one global deadline. The previous per-module wait could take twelve minutes.
     const ULONGLONG deadline = GetTickCount64() + 180000ULL;
+    GameCtorTrace("Game::Game waiting for required Source modules (maximum 180 seconds).");
     while (!AllRequiredModulesLoaded() && GetTickCount64() < deadline)
         Sleep(250);
+    GameCtorTrace(AllRequiredModulesLoaded() ? "Game::Game required Source modules are loaded." :
+        "Game::Game timed out waiting for required Source modules.");
 
     if (!AllRequiredModulesLoaded())
     {
@@ -81,8 +115,12 @@ Game::Game(bool diagnosticsOnly)
     m_BaseServer = reinterpret_cast<uintptr_t>(GetModuleHandleA("server.dll"));
     m_BaseVgui2 = reinterpret_cast<uintptr_t>(GetModuleHandleA("vgui2.dll"));
 
+    GameCtorTrace("Game::Game collecting loaded module audit.");
     const std::vector<RuntimeAuditModule> modules = RuntimeAuditCollectModules();
+    GameCtorTrace("Game::Game writing loaded module audit.");
     RuntimeAuditDumpModuleTable(initLog, modules);
+    initLog.flush();
+    GameCtorTrace("Game::Game loaded module audit written.");
 
     // Interface names were found in the supplied target images. Runtime pointer and
     // vtable inspection below is the first actual factory/vtable evidence.
@@ -96,6 +134,7 @@ Game::Game(bool diagnosticsOnly)
     m_ModelRender = static_cast<IModelRender*>(GetInterface("engine.dll", "VEngineModel016"));
     m_VguiInput = static_cast<IInput*>(GetInterface("vgui2.dll", "VGUI_InputInternal001"));
     m_VguiSurface = static_cast<ISurface*>(GetInterface("vguimatsurface.dll", "VGUI_Surface031"));
+    GameCtorTrace("Game::Game Source interface factory queries completed.");
 
     initLog << "\nCreateInterface factory results:\n";
     initLog << "  VClientEntityList003: " << (m_ClientEntityList ? "created" : "not created") << "\n";
@@ -111,6 +150,7 @@ Game::Game(bool diagnosticsOnly)
 
     if (m_DiagnosticsOnly)
     {
+        GameCtorTrace("Game::Game entering interface/vtable audit.");
         RuntimeAuditDumpInterface(initLog, "VClientEntityList003", m_ClientEntityList, 32, modules);
         RuntimeAuditDumpInterface(initLog, "EngineTraceClient003", m_EngineTrace, 16, modules);
         RuntimeAuditDumpInterface(initLog, "VEngineClient013", m_EngineClient, 160, modules);
