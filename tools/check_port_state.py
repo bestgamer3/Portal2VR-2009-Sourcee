@@ -49,11 +49,26 @@ if "RuntimeAuditVerifyFunctionTarget" not in game_cpp or "RuntimeAuditVerifyInte
     raise SystemExit("RenderView target validation is comparing unrelated engine/client interfaces")
 if not re.search(r'RuntimeAuditVerifyFunctionTarget\([\s\S]*?"client\.dll"', game_cpp):
     raise SystemExit("RenderView is not verified as an executable client.dll function")
-if not re.search(r'if\s*\(!PORTAL2_2009_FUNCTION_HOOK_ABIS_VERIFIED\)[\s\S]*?return;[\s\S]*?m_VR\s*=\s*new VR\(this, true\)', game_cpp):
-    raise SystemExit("RenderView ABI gate must return before OpenVR initialization and hook installation")
-# The per-frame OpenVR update must be called from the live render detour.
-if not re.search(r"void __fastcall Hooks::dRenderView[\s\S]*?m_VR->Update\(\);", source):
-    raise SystemExit("VR::Update() is not called from the RenderView detour")
+# OpenVR/menu-overlay initialization must happen before the closed gameplay-hook ABI gate.
+vr_init = game_cpp.find("m_VR = new VR(this, true)")
+abi_gate = game_cpp.find("if (!PORTAL2_2009_FUNCTION_HOOK_ABIS_VERIFIED)")
+if vr_init < 0 or abi_gate < 0 or vr_init > abi_gate:
+    raise SystemExit("OpenVR/menu-overlay initialization must precede the RenderView ABI gate")
+if not re.search(r"m_Initialized\s*=\s*true;[\s\S]*?if\s*\(!PORTAL2_2009_FUNCTION_HOOK_ABIS_VERIFIED\)", game_cpp):
+    raise SystemExit("Menu-only VR must mark the PresentEx bridge ready before taking the safe no-hook return")
+# PresentEx must be the sole per-frame update point; RenderView only marks completed eye frames.
+if "m_VR->Update();" in source:
+    raise SystemExit("OpenVR update is duplicated outside the DXVK PresentEx bridge")
+dxvk_patch = (ROOT / "apply-dxvk-vr-safety-patch.ps1").read_text(encoding="utf-8", errors="replace")
+for required in (
+    "GetBackBufferData(&g_Game->m_VR->m_VKBackBuffer)",
+    "g_Game->m_VR->Update();",
+    "g_Game->m_Initialized",
+    "backBufferSurface->Release();",
+    "if (FAILED(descResult))",
+):
+    if required not in dxvk_patch:
+        raise SystemExit(f"DXVK PresentEx/backbuffer patch is missing: {required}")
 # The custom usercmd tail must be consumed even when a player cannot be mapped.
 read_body = source.split("int Hooks::dReadUsercmd", 1)[1].split("void Hooks::dAdjustEngineViewport", 1)[0]
 if "const int marker = buf->ReadChar();" not in read_body or "buf->ReadBitVec3Coord(controllerPosition);" not in read_body:
@@ -80,5 +95,7 @@ print(f"PASS: {len(required)} required targets are fail-closed before VR hook in
 print("PASS: both RTTI-derived client targets are pinned to the audited 2009 RVAs.")
 print("PASS: both ABI verification gates remain false.")
 print("PASS: diagnostics return before VR_Init/hooks and can run without -insecure.")
+print("PASS: OpenVR/menu-overlay startup precedes the closed Source-hook ABI gate.")
+print("PASS: DXVK PresentEx is the sole frame-update point and refreshes/releases the backbuffer safely.")
 print("PASS: runtime audit header and Visual Studio XML are present/valid.")
-print("PASS: RenderView updates OpenVR, ReadUsercmd consumes controller payloads, and render targets invalidate only on state transitions.")
+print("PASS: RenderView marks completed eye frames, ReadUsercmd consumes controller payloads, and render targets invalidate only on state transitions.")
