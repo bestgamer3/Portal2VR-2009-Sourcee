@@ -85,6 +85,13 @@ if ($missingDependencies.Count -gt 0) {
     }
 }
 
+# Apply the local DXVK safety patch after dependencies are available and before compilation.
+$dxvkPatchScript = Join-Path $PSScriptRoot 'apply-dxvk-vr-safety-patch.ps1'
+if (!(Test-Path -LiteralPath $dxvkPatchScript -PathType Leaf)) {
+    throw "Required DXVK safety patch script not found: $dxvkPatchScript"
+}
+& $dxvkPatchScript
+
 $missingProjectFiles = Test-ProjectSourceFiles
 if ($missingProjectFiles.Count -gt 0) {
     $preview = ($missingProjectFiles | Select-Object -First 20) -join ', '
