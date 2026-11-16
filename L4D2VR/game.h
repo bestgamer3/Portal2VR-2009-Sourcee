@@ -71,7 +71,6 @@ public:
 
     bool m_Initialized = false;
     bool m_DiagnosticsOnly = false;
-    bool m_TheaterOnly = false;
 
     std::array<Player, 24> m_PlayersVRInfo;
     int m_CurrentUsercmdID = -1;
@@ -80,7 +79,7 @@ public:
     IMaterial *m_ArmsMaterial = nullptr;
     bool m_CachedArmsModel = false;
 
-    explicit Game(bool diagnosticsOnly = false, bool theaterOnly = false);
+    explicit Game(bool diagnosticsOnly = false);
 
     void *GetInterface(const char *dllname, const char *interfacename);
 
