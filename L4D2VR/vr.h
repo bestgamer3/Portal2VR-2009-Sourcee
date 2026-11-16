@@ -46,7 +46,7 @@ public:
 	uint32_t m_RenderWidth;
 	uint32_t m_RenderHeight;
 	uint32_t m_AntiAliasing;
-	uint32_t m_RenderWindow;
+	uint32_t m_RenderWindow = 0;
 	float m_Aspect;
 	float m_Fov;
 
@@ -132,6 +132,8 @@ public:
 	SharedTextureHolder m_VKHUD;
 	SharedTextureHolder m_VKBlankTexture;
 
+	bool m_RenderOnlyMode = false;
+	bool m_HasRenderTrackingOrigin = false;
 	bool m_IsVREnabled = false;
 	bool m_IsInitialized = false;
 	bool m_HasLastInGameState = false;
@@ -198,10 +200,11 @@ public:
 	int m_AimMode = 2;
 
 	VR() {};
-	VR(Game *game);
+	VR(Game *game, bool renderOnly = false);
 	int SetActionManifest(const char *fileName);
 	void InstallApplicationManifest(const char *fileName);
 	void Update();
+	void UpdateRenderTracking();
 	void SetScreenSizeOverride(bool bState);
 	void CreateVRTextures();
 	void SubmitVRTextures();
