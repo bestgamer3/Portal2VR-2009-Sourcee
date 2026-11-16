@@ -233,6 +233,7 @@ public:
 
 	Hooks() {};
 	Hooks(Game *game);
+	Hooks(Game *game, bool renderOnly);
 
 	~Hooks();
 
