@@ -410,7 +410,19 @@ void VR::CreateVRTextures()
 
     m_Game->m_MaterialSystem->EndRenderTargetAllocation();
 
-    m_CreatedVRTextures = true;
+    // Do not advertise the VR targets as ready unless both eye textures and
+    // their DXVK-exported surfaces exist. PresentEx also checks these pointers
+    // before resolving them to Vulkan images.
+    m_CreatedVRTextures =
+        m_LeftEyeTexture != nullptr &&
+        m_RightEyeTexture != nullptr &&
+        m_BlankTexture != nullptr &&
+        m_D9LeftEyeSurface != nullptr &&
+        m_D9RightEyeSurface != nullptr &&
+        m_D9BlankSurface != nullptr;
+
+    if (!m_CreatedVRTextures)
+        std::cerr << "VR eye target creation failed; keeping the normal game render path active.\\n";
 }
 
 void VR::SubmitVRTextures()
