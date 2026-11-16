@@ -69,6 +69,40 @@ namespace
         LoaderLog(message);
         return EXCEPTION_EXECUTE_HANDLER;
     }
+
+    bool RequiredSourceModulesLoaded()
+    {
+        static const char* names[] = {
+            "client.dll", "engine.dll", "materialsystem.dll", "server.dll",
+            "vgui2.dll", "vguimatsurface.dll"
+        };
+        for (const char* name : names)
+        {
+            if (!GetModuleHandleA(name))
+                return false;
+        }
+        return true;
+    }
+
+    void LogSourceModuleWaitStatus()
+    {
+        const bool client = GetModuleHandleA("client.dll") != nullptr;
+        const bool engine = GetModuleHandleA("engine.dll") != nullptr;
+        const bool material = GetModuleHandleA("materialsystem.dll") != nullptr;
+        const bool server = GetModuleHandleA("server.dll") != nullptr;
+        const bool vgui2 = GetModuleHandleA("vgui2.dll") != nullptr;
+        const bool surface = GetModuleHandleA("vguimatsurface.dll") != nullptr;
+        char message[512]{};
+        sprintf_s(message,
+            "Background module wait: client=%s engine=%s materialsystem=%s server=%s vgui2=%s vguimatsurface=%s",
+            client ? "loaded" : "missing",
+            engine ? "loaded" : "missing",
+            material ? "loaded" : "missing",
+            server ? "loaded" : "missing",
+            vgui2 ? "loaded" : "missing",
+            surface ? "loaded" : "missing");
+        LoaderLog(message);
+    }
 }
 
 // Keep the SEH boundary in a function that has no C++ objects requiring unwinding.
@@ -167,7 +201,35 @@ DWORD WINAPI InitPortal2VR2009(LPVOID parameter)
         return 0;
     }
 
-    LoaderLog("About to construct Game; diagnostics log should be created in the working directory.");
+    // This loader thread is independent of the game's main thread. Wait here for
+    // the Source game DLLs to finish loading; never block inside Game::Game and
+    // never try to LoadLibrary the client/server modules ourselves.
+    LoaderLog("Waiting asynchronously for all required Source modules (maximum 180 seconds).");
+    LogSourceModuleWaitStatus();
+    const ULONGLONG moduleDeadline = GetTickCount64() + 180000ULL;
+    ULONGLONG nextModuleReport = GetTickCount64() + 1000ULL;
+    while (!RequiredSourceModulesLoaded() && GetTickCount64() < moduleDeadline)
+    {
+        Sleep(250);
+        if (GetTickCount64() >= nextModuleReport)
+        {
+            LogSourceModuleWaitStatus();
+            nextModuleReport = GetTickCount64() + 1000ULL;
+        }
+    }
+
+    if (!RequiredSourceModulesLoaded())
+    {
+        LoaderLog("Timed out waiting for Source modules. Game startup was left untouched; no interfaces, VR, or hooks were initialized.");
+        if (g_LoaderLog != INVALID_HANDLE_VALUE)
+        {
+            CloseHandle(g_LoaderLog);
+            g_LoaderLog = INVALID_HANDLE_VALUE;
+        }
+        return 0;
+    }
+
+    LoaderLog("All required Source modules are loaded.");
     LoaderLog("Calling ConstructGameWithSeh now.");
     ConstructGameWithSeh(diagnosticsOnly);
     LoaderLog("Returned from ConstructGameWithSeh.");
