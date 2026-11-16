@@ -41,9 +41,14 @@ game_cpp = (ROOT / "L4D2VR" / "game.cpp").read_text(encoding="utf-8", errors="re
 if "if (m_DiagnosticsOnly)" not in game_cpp or "Diagnostics complete." not in game_cpp:
     raise SystemExit("Read-only diagnostics path is missing")
 diag_end = game_cpp.find("Diagnostics complete.")
-vr_init = game_cpp.find("m_VR = new VR(this);")
+vr_init = game_cpp.find("m_VR = new VR(this")
 if diag_end < 0 or vr_init < 0 or diag_end > vr_init:
     raise SystemExit("Diagnostics path no longer returns before VR initialization")
+# RenderView is a client.dll CViewRender function, not engine.dll VEngineRenderView013 slot 6.
+if "RuntimeAuditVerifyFunctionTarget" not in game_cpp or "RuntimeAuditVerifyInterfaceSlot(" in game_cpp:
+    raise SystemExit("RenderView target validation is comparing unrelated engine/client interfaces")
+if not re.search(r'RuntimeAuditVerifyFunctionTarget\([\s\S]*?"client\.dll"', game_cpp):
+    raise SystemExit("RenderView is not verified as an executable client.dll function")
 # The per-frame OpenVR update must be called from the live render detour.
 if not re.search(r"void __fastcall Hooks::dRenderView[\s\S]*?m_VR->Update\(\);", source):
     raise SystemExit("VR::Update() is not called from the RenderView detour")
