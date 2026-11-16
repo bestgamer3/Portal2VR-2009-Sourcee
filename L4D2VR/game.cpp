@@ -223,15 +223,25 @@ Game::Game(bool diagnosticsOnly)
     initLog.flush();
     GameCtorTrace("Game::Game wrote interface factory results.");
 
+    // The July 2009 client.dll does not expose VEngineRenderView013. The engine
+    // factory does expose it, and source review shows the client-side pointer is
+    // not used by the current VR implementation. Treat it as optional.
+    if (!m_ClientViewRender)
+    {
+        initLog << "  Note: VEngineRenderView013 from client.dll is unavailable; "
+                   "the engine.dll instance was created and remains the required render interface.\n";
+        GameCtorTrace("Optional client VEngineRenderView013 is unavailable; continuing.");
+    }
+
     if (!m_ClientEntityList || !m_EngineTrace || !m_EngineClient || !m_MaterialSystem ||
-        !m_ClientViewRender || !m_EngineViewRender || !m_ModelInfo || !m_ModelRender ||
+        !m_EngineViewRender || !m_ModelInfo || !m_ModelRender ||
         !m_VguiInput || !m_VguiSurface)
     {
-        initLog << "\nInitialization stopped: one or more required interfaces were not created.\n";
+        initLog << "\nInitialization stopped: one or more required Source interfaces were not created.\n";
         initLog.flush();
         initLog.close();
-        GameCtorTrace("Game::Game stopping because one or more required interfaces were not created.");
-        errorMsg("One or more required Source interfaces could not be created.\nSee portal2vr_2009_init.log.");
+        GameCtorTrace("Game::Game stopping because a required Source interface was not created.");
+        errorMsg("A required Source interface could not be created.\nSee portal2vr_2009_init.log.");
         return;
     }
 
