@@ -21,6 +21,7 @@ DWORD WINAPI InitPortal2VR2009(LPVOID parameter)
     LPWSTR* arguments = CommandLineToArgvW(GetCommandLineW(), &argumentCount);
     bool insecureEnabled = false;
     bool diagnosticsOnly = false;
+    bool theaterOnly = false;
     if (arguments)
     {
         for (int i = 0; i < argumentCount; ++i)
@@ -29,16 +30,18 @@ DWORD WINAPI InitPortal2VR2009(LPVOID parameter)
                 insecureEnabled = true;
             else if (lstrcmpiW(arguments[i], L"-vrdiagnostics") == 0)
                 diagnosticsOnly = true;
+            else if (lstrcmpiW(arguments[i], L"-vrtheater") == 0)
+                theaterOnly = true;
         }
         LocalFree(arguments);
     }
 
     // Diagnostic mode can run without -insecure because it never installs hooks.
     // Regular VR initialization continues to require -insecure.
-    if (!insecureEnabled && !diagnosticsOnly)
+    if (!insecureEnabled && !diagnosticsOnly && !theaterOnly)
         return 0;
 
-    g_Game = new Game(diagnosticsOnly);
+    g_Game = new Game(diagnosticsOnly, theaterOnly);
     return 0;
 }
 
