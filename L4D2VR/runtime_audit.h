@@ -169,33 +169,33 @@ inline bool RuntimeAuditVerifyInterfaceSlot(
     const void* expectedFunction,
     const std::vector<RuntimeAuditModule>& modules)
 {
-    out << "\\nRender hook target verification for " << (interfaceName ? interfaceName : "(unknown)")
+    out << "\nRender hook target verification for " << (interfaceName ? interfaceName : "(unknown)")
         << " slot " << slotIndex << ": ";
 
     if (!object || !RuntimeAuditIsReadable(object))
     {
-        out << "FAIL - interface object is not readable\\n";
+        out << "FAIL - interface object is not readable\n";
         return false;
     }
 
     const auto* vtable = *reinterpret_cast<void* const* const*>(object);
     if (!vtable || !RuntimeAuditIsReadable(vtable))
     {
-        out << "FAIL - vtable pointer is not readable\\n";
+        out << "FAIL - vtable pointer is not readable\n";
         return false;
     }
 
     const void* const* slot = vtable + slotIndex;
     if (!RuntimeAuditIsReadable(slot))
     {
-        out << "FAIL - vtable slot is not readable\\n";
+        out << "FAIL - vtable slot is not readable\n";
         return false;
     }
 
     const void* actualFunction = *slot;
     if (!RuntimeAuditIsExecutable(actualFunction))
     {
-        out << "FAIL - vtable slot does not point to executable memory\\n";
+        out << "FAIL - vtable slot does not point to executable memory\n";
         return false;
     }
 
@@ -206,7 +206,7 @@ inline bool RuntimeAuditVerifyInterfaceSlot(
         << std::dec
         << " actual-module=" << RuntimeAuditDescribeAddress(actualFunction, modules)
         << " expected-module=" << RuntimeAuditDescribeAddress(expectedFunction, modules)
-        << "\\n";
+        << "\n";
 
     return actualFunction == expectedFunction;
 }
