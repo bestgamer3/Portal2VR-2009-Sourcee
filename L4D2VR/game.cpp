@@ -148,9 +148,11 @@ Game::Game(bool diagnosticsOnly)
     m_BaseMaterialSystem = reinterpret_cast<uintptr_t>(GetModuleHandleA("materialsystem.dll"));
     m_BaseServer = reinterpret_cast<uintptr_t>(GetModuleHandleA("server.dll"));
     m_BaseVgui2 = reinterpret_cast<uintptr_t>(GetModuleHandleA("vgui2.dll"));
+    GameCtorTrace("Game::Game cached Source module base addresses.");
 
     GameCtorTrace("Game::Game collecting loaded module audit.");
     const std::vector<RuntimeAuditModule> modules = RuntimeAuditCollectModules();
+    GameCtorTrace("Game::Game RuntimeAuditCollectModules returned.");
     GameCtorTrace("Game::Game writing loaded module audit.");
     RuntimeAuditDumpModuleTable(initLog, modules);
     initLog.flush();
@@ -158,16 +160,36 @@ Game::Game(bool diagnosticsOnly)
 
     // Interface names were found in the supplied target images. Runtime pointer and
     // vtable inspection below is the first actual factory/vtable evidence.
+    GameCtorTrace("Querying VClientEntityList003.");
     m_ClientEntityList = static_cast<IClientEntityList*>(GetInterface("client.dll", "VClientEntityList003"));
+    GameCtorTrace("VClientEntityList003 query returned.");
+    GameCtorTrace("Querying EngineTraceClient003.");
     m_EngineTrace = static_cast<IEngineTrace*>(GetInterface("engine.dll", "EngineTraceClient003"));
+    GameCtorTrace("EngineTraceClient003 query returned.");
+    GameCtorTrace("Querying VEngineClient013.");
     m_EngineClient = static_cast<IEngineClient*>(GetInterface("engine.dll", "VEngineClient013"));
+    GameCtorTrace("VEngineClient013 query returned.");
+    GameCtorTrace("Querying VMaterialSystem080.");
     m_MaterialSystem = static_cast<IMaterialSystem*>(GetInterface("materialsystem.dll", "VMaterialSystem080"));
+    GameCtorTrace("VMaterialSystem080 query returned.");
+    GameCtorTrace("Querying VEngineRenderView013 (client).");
     m_ClientViewRender = static_cast<IViewRender*>(GetInterface("client.dll", "VEngineRenderView013"));
+    GameCtorTrace("VEngineRenderView013 (client) query returned.");
+    GameCtorTrace("Querying VEngineRenderView013 (engine).");
     m_EngineViewRender = static_cast<IViewRender*>(GetInterface("engine.dll", "VEngineRenderView013"));
+    GameCtorTrace("VEngineRenderView013 (engine) query returned.");
+    GameCtorTrace("Querying VModelInfoClient004.");
     m_ModelInfo = static_cast<IModelInfo*>(GetInterface("engine.dll", "VModelInfoClient004"));
+    GameCtorTrace("VModelInfoClient004 query returned.");
+    GameCtorTrace("Querying VEngineModel016.");
     m_ModelRender = static_cast<IModelRender*>(GetInterface("engine.dll", "VEngineModel016"));
+    GameCtorTrace("VEngineModel016 query returned.");
+    GameCtorTrace("Querying VGUI_InputInternal001.");
     m_VguiInput = static_cast<IInput*>(GetInterface("vgui2.dll", "VGUI_InputInternal001"));
+    GameCtorTrace("VGUI_InputInternal001 query returned.");
+    GameCtorTrace("Querying VGUI_Surface031.");
     m_VguiSurface = static_cast<ISurface*>(GetInterface("vguimatsurface.dll", "VGUI_Surface031"));
+    GameCtorTrace("VGUI_Surface031 query returned.");
     GameCtorTrace("Game::Game Source interface factory queries completed.");
 
     initLog << "\nCreateInterface factory results:\n";
@@ -196,66 +218,45 @@ Game::Game(bool diagnosticsOnly)
         RuntimeAuditDumpInterface(initLog, "VGUI_InputInternal001", m_VguiInput, 128, modules);
         RuntimeAuditDumpInterface(initLog, "VGUI_Surface031", m_VguiSurface, 180, modules);
 
-        m_Offsets = new Offsets();
-        initLog << "\nRequired hook target signature results (all 37 targets):\n";
-        WriteOffsetStatus(initLog, "RenderView", m_Offsets->RenderView);
-        WriteOffsetStatus(initLog, "CalcViewModelView", m_Offsets->CalcViewModelView);
-        WriteOffsetStatus(initLog, "CreateMove", m_Offsets->CreateMove);
-        WriteOffsetStatus(initLog, "WriteUsercmd", m_Offsets->WriteUsercmd);
-        WriteOffsetStatus(initLog, "PrePushRenderTarget", m_Offsets->PrePushRenderTarget);
-        WriteOffsetStatus(initLog, "ReadUserCmd", m_Offsets->ReadUserCmd);
-        WriteOffsetStatus(initLog, "ProcessUsercmds", m_Offsets->ProcessUsercmds);
-        WriteOffsetStatus(initLog, "CBaseEntity_entindex", m_Offsets->CBaseEntity_entindex);
-        WriteOffsetStatus(initLog, "EyePosition", m_Offsets->EyePosition);
-        WriteOffsetStatus(initLog, "PushRenderTargetAndViewport", m_Offsets->PushRenderTargetAndViewport);
-        WriteOffsetStatus(initLog, "PopRenderTargetAndViewport", m_Offsets->PopRenderTargetAndViewport);
-        WriteOffsetStatus(initLog, "TraceFirePortalServer", m_Offsets->TraceFirePortalServer);
-        WriteOffsetStatus(initLog, "CWeaponPortalgun_FirePortal", m_Offsets->CWeaponPortalgun_FirePortal);
-        WriteOffsetStatus(initLog, "VGui_Paint", m_Offsets->VGui_Paint);
-        WriteOffsetStatus(initLog, "PlayerPortalled", m_Offsets->PlayerPortalled);
-        WriteOffsetStatus(initLog, "DrawSelf", m_Offsets->DrawSelf);
-        WriteOffsetStatus(initLog, "ClipTransform", m_Offsets->ClipTransform);
-        WriteOffsetStatus(initLog, "CreatePingPointer", m_Offsets->CreatePingPointer);
-        WriteOffsetStatus(initLog, "GetPortalPlayer", m_Offsets->GetPortalPlayer);
-        WriteOffsetStatus(initLog, "PrecacheParticleSystem", m_Offsets->PrecacheParticleSystem);
-        WriteOffsetStatus(initLog, "Precache", m_Offsets->Precache);
-        WriteOffsetStatus(initLog, "SetDrawOnlyForSplitScreenUser", m_Offsets->SetDrawOnlyForSplitScreenUser);
-        WriteOffsetStatus(initLog, "CHudCrosshair_ShouldDraw", m_Offsets->CHudCrosshair_ShouldDraw);
-        WriteOffsetStatus(initLog, "SetControlPoint", m_Offsets->SetControlPoint);
-        WriteOffsetStatus(initLog, "StopEmission", m_Offsets->StopEmission);
-        WriteOffsetStatus(initLog, "UTIL_Portal_FirstAlongRay", m_Offsets->UTIL_Portal_FirstAlongRay);
-        WriteOffsetStatus(initLog, "UTIL_IntersectRayWithPortal", m_Offsets->UTIL_IntersectRayWithPortal);
-        WriteOffsetStatus(initLog, "Weapon_ShootPosition", m_Offsets->Weapon_ShootPosition);
-        WriteOffsetStatus(initLog, "ComputeError", m_Offsets->ComputeError);
-        WriteOffsetStatus(initLog, "UpdateObject", m_Offsets->UpdateObject);
-        WriteOffsetStatus(initLog, "UpdateObjectVM", m_Offsets->UpdateObjectVM);
-        WriteOffsetStatus(initLog, "RotateObject", m_Offsets->RotateObject);
-        WriteOffsetStatus(initLog, "EyeAngles", m_Offsets->EyeAngles);
-        WriteOffsetStatus(initLog, "GetFOV", m_Offsets->GetFOV);
-        WriteOffsetStatus(initLog, "GetDefaultFOV", m_Offsets->GetDefaultFOV);
-        WriteOffsetStatus(initLog, "GetViewModelFOV", m_Offsets->GetViewModelFOV);
-        WriteOffsetStatus(initLog, "GetOwner", m_Offsets->GetOwner);
-        initLog << "\n";
-
-        initLog << "\nRequired hook targets still unresolved:\n";
-        const std::string unresolved = m_Offsets->GetRequiredOffsetFailures();
-        initLog << (unresolved.empty() ? "  none\n" : unresolved);
+        initLog << "\nSignature scan skipped in this safe diagnostics pass.\n";
+        initLog << "The hook verification gates remain disabled; no Offsets object, hooks, or VR session was created.\n";
         initLog << "\nDiagnostics complete. VR_Init was not called and no hooks were installed.\n";
+        initLog.flush();
         initLog.close();
+        GameCtorTrace("Game::Game safe diagnostics complete; returning without signature scanning or VR_Init.");
         return;
     }
+
+    initLog.flush();
+    GameCtorTrace("Game::Game wrote interface factory results.");
 
     if (!m_ClientEntityList || !m_EngineTrace || !m_EngineClient || !m_MaterialSystem ||
         !m_ClientViewRender || !m_EngineViewRender || !m_ModelInfo || !m_ModelRender ||
         !m_VguiInput || !m_VguiSurface)
     {
         initLog << "\nInitialization stopped: one or more required interfaces were not created.\n";
+        initLog.flush();
         initLog.close();
+        GameCtorTrace("Game::Game stopping because one or more required interfaces were not created.");
         errorMsg("One or more required Source interfaces could not be created.\nSee portal2vr_2009_init.log.");
         return;
     }
 
+    // Do not run signature scanning or attempt VR hooks until the 2009 interfaces
+    // and hook ABIs are explicitly verified. This is intentionally fail-closed.
+    if (!PORTAL2_2009_INTERFACE_VTABLES_VERIFIED || !PORTAL2_2009_FUNCTION_HOOK_ABIS_VERIFIED)
+    {
+        initLog << "\nInitialization stopped safely: the 2009 vtable/calling-convention verification gates are disabled.\n";
+        initLog << "Signature scanning, VR initialization, and hooks were skipped.\n";
+        initLog.flush();
+        initLog.close();
+        GameCtorTrace("Game::Game stopped safely before signature scanning: verification gates are disabled.");
+        return;
+    }
+
+    GameCtorTrace("Game::Game constructing Offsets for verified hook setup.");
     m_Offsets = new Offsets();
+    GameCtorTrace("Game::Game Offsets construction returned.");
     const std::string unresolved = m_Offsets->GetRequiredOffsetFailures();
     if (!unresolved.empty())
     {
