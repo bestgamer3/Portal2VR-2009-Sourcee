@@ -177,7 +177,8 @@ Write-Host ''
 Write-Host 'Build succeeded.' -ForegroundColor Green
 Write-Host "DLL: $d3d9Dll"
 Write-Host "OpenVR runtime DLL and VR manifests staged under: $outputDir"
-Write-Host 'This build enables the isolated, render-only stereo path. Controller and gameplay hooks remain disabled.' -ForegroundColor Yellow
+Write-Host 'This build initializes OpenVR and routes the Portal 2 main-menu backbuffer to a SteamVR overlay.' -ForegroundColor Green
+Write-Host 'The unverified RenderView stereo detour and controller/gameplay hooks remain disabled for crash safety.' -ForegroundColor Yellow
 
 if (-not [string]::IsNullOrWhiteSpace($GameBin)) {
     $resolvedGameBin = (Resolve-Path -LiteralPath $GameBin -ErrorAction Stop).Path
