@@ -67,10 +67,10 @@ $newResolve = @(
     '    }'
 ) -join $newline
 
-$oldWait = '    g_D3DVR9->WaitDeviceIdle();'
+$oldWait = "`tg_D3DVR9->WaitDeviceIdle();"
 $newWait = @(
-    '    if (g_D3DVR9 != nullptr)'
-    '      g_D3DVR9->WaitDeviceIdle();'
+    "`tif (g_D3DVR9 != nullptr)"
+    "`t  g_D3DVR9->WaitDeviceIdle();"
 ) -join $newline
 
 $hasResolveGuard = $content.Contains($newResolve)
