@@ -177,7 +177,7 @@ Write-Host ''
 Write-Host 'Build succeeded.' -ForegroundColor Green
 Write-Host "DLL: $d3d9Dll"
 Write-Host "OpenVR runtime DLL and VR manifests staged under: $outputDir"
-Write-Host 'This is a compile/diagnostic build. The 2009 gameplay hooks remain fail-closed; it is not yet a playable VR port.' -ForegroundColor Yellow
+Write-Host 'This build enables the isolated, render-only stereo path. Controller and gameplay hooks remain disabled.' -ForegroundColor Yellow
 
 if (-not [string]::IsNullOrWhiteSpace($GameBin)) {
     $resolvedGameBin = (Resolve-Path -LiteralPath $GameBin -ErrorAction Stop).Path
