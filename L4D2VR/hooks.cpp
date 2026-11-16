@@ -288,7 +288,6 @@ void __fastcall Hooks::dRenderView(void *ecx, void *edx, CViewSetup &setup, CVie
 
 	const Vector baseOrigin = setup.origin;
 	const Vector hmdAngle = m_VR->GetViewAngle();
-	const QAngle hmdViewAngle(hmdAngle.x, hmdAngle.y, hmdAngle.z);
 
 	setup.x = 0;
 	setup.y = 0;
@@ -301,7 +300,7 @@ void __fastcall Hooks::dRenderView(void *ecx, void *edx, CViewSetup &setup, CVie
 	setup.m_flAspectRatio = m_VR->m_Aspect;
 	setup.zNear = 6;
 	setup.zNearViewmodel = 2;
-	setup.angles = hmdViewAngle;
+	setup.angles = hmdAngle;
 
 	hudViewSetup.width = m_VR->m_RenderWidth;
 	hudViewSetup.height = m_VR->m_RenderHeight;
@@ -317,7 +316,7 @@ void __fastcall Hooks::dRenderView(void *ecx, void *edx, CViewSetup &setup, CVie
 	// Portal-plane eye clipping is intentionally deferred until those server hooks
 	// have their July 2009 calling conventions verified.
 	leftEyeView.origin = m_VR->GetViewOriginLeft(baseOrigin);
-	leftEyeView.angles = hmdViewAngle;
+	leftEyeView.angles = hmdAngle;
 	renderContext->SetRenderTarget(m_VR->m_LeftEyeTexture);
 	renderContext->Release();
 	hkRenderView.fOriginal(ecx, leftEyeView, hudViewSetup, nClearFlags, whatToDraw);
@@ -329,7 +328,7 @@ void __fastcall Hooks::dRenderView(void *ecx, void *edx, CViewSetup &setup, CVie
 	renderContext->Release();
 
 	rightEyeView.origin = m_VR->GetViewOriginRight(baseOrigin);
-	rightEyeView.angles = hmdViewAngle;
+	rightEyeView.angles = hmdAngle;
 	hkRenderView.fOriginal(ecx, rightEyeView, hudViewSetup, nClearFlags, whatToDraw);
 
 	renderContext = m_Game->m_MaterialSystem->GetRenderContext();
