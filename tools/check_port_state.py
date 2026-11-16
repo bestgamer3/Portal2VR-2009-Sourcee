@@ -49,6 +49,8 @@ if "RuntimeAuditVerifyFunctionTarget" not in game_cpp or "RuntimeAuditVerifyInte
     raise SystemExit("RenderView target validation is comparing unrelated engine/client interfaces")
 if not re.search(r'RuntimeAuditVerifyFunctionTarget\([\s\S]*?"client\.dll"', game_cpp):
     raise SystemExit("RenderView is not verified as an executable client.dll function")
+if not re.search(r'if\s*\(!PORTAL2_2009_FUNCTION_HOOK_ABIS_VERIFIED\)[\s\S]*?return;[\s\S]*?m_VR\s*=\s*new VR\(this, true\)', game_cpp):
+    raise SystemExit("RenderView ABI gate must return before OpenVR initialization and hook installation")
 # The per-frame OpenVR update must be called from the live render detour.
 if not re.search(r"void __fastcall Hooks::dRenderView[\s\S]*?m_VR->Update\(\);", source):
     raise SystemExit("VR::Update() is not called from the RenderView detour")
