@@ -16,9 +16,10 @@
 #include <cmath>
 #include <d3d9_vr.h>
 
-VR::VR(Game *game) 
+VR::VR(Game *game, bool renderOnly) 
 {
     m_Game = game;
+    m_RenderOnlyMode = renderOnly;
 
     char errorString[MAX_STR_LEN];
 
@@ -312,6 +313,15 @@ void VR::Update()
     }
 
     SubmitVRTextures();
+
+    // The first bring-up pass deliberately updates only the HMD pose. Controller,
+    // player, portal and weapon code remains disabled until its 2009 ABIs are verified.
+    if (m_RenderOnlyMode)
+    {
+        UpdateRenderTracking();
+        return;
+    }
+
     UpdatePosesAndActions();
     UpdateTracking();
 
@@ -320,6 +330,40 @@ void VR::Update()
     } else {
         ProcessInput();
     }
+}
+
+void VR::UpdateRenderTracking()
+{
+    if (!m_IsInitialized || !m_System || !vr::VRCompositor())
+        return;
+
+    vr::VRCompositor()->WaitGetPoses(m_Poses, vr::k_unMaxTrackedDeviceCount, nullptr, 0);
+
+    const vr::TrackedDevicePose_t& hmdPose = m_Poses[vr::k_unTrackedDeviceIndex_Hmd];
+    if (!hmdPose.bPoseIsValid)
+        return;
+
+    GetPoseData(const_cast<vr::TrackedDevicePose_t&>(hmdPose), m_HmdPose);
+
+    // Establish a stable origin at the user's current standing position so the
+    // first pose does not move the in-game camera by the room's absolute offset.
+    if (!m_HasRenderTrackingOrigin)
+    {
+        m_Center = m_HmdPose.TrackedDevicePos;
+        m_HasRenderTrackingOrigin = true;
+    }
+
+    Vector hmdPosCentered = m_HmdPose.TrackedDevicePos - m_Center;
+    m_HmdPosRelativeRaw = hmdPosCentered;
+
+    Vector hmdPosCorrected = hmdPosCentered;
+    VectorPivotXY(hmdPosCorrected, { 0, 0, 0 }, m_RotationOffset.y);
+    m_HmdPosRelative = m_6DOF ? hmdPosCorrected * m_VRScale : Vector(0, 0, 0);
+
+    UpdateHMDAngles();
+    GetViewParameters();
+    m_Ipd = m_EyeToHeadTransformPosRight.x * 2.0f;
+    m_EyeZ = m_EyeToHeadTransformPosRight.z;
 }
 
 void VR::CreateVRTextures()
