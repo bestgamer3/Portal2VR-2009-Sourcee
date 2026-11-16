@@ -245,63 +245,66 @@ Game::Game(bool diagnosticsOnly)
         return;
     }
 
-    // Do not run signature scanning or attempt VR hooks until the 2009 interfaces
-    // and hook ABIs are explicitly verified. This is intentionally fail-closed.
-    if (!PORTAL2_2009_INTERFACE_VTABLES_VERIFIED || !PORTAL2_2009_FUNCTION_HOOK_ABIS_VERIFIED)
-    {
-        initLog << "\nInitialization stopped safely: the 2009 vtable/calling-convention verification gates are disabled.\n";
-        initLog << "Signature scanning, VR initialization, and hooks were skipped.\n";
-        initLog.flush();
-        initLog.close();
-        GameCtorTrace("Game::Game stopped safely before signature scanning: verification gates are disabled.");
-        return;
-    }
-
-    GameCtorTrace("Game::Game constructing Offsets for verified hook setup.");
+    // The full gameplay hook set remains gated off. For the first in-game stereo
+    // pass, resolve one function signature and require an exact match with slot 6
+    // of the live VEngineRenderView013 interface before installing that single hook.
+    GameCtorTrace("Game::Game resolving the isolated RenderView hook target.");
     m_Offsets = new Offsets();
     GameCtorTrace("Game::Game Offsets construction returned.");
-    const std::string unresolved = m_Offsets->GetRequiredOffsetFailures();
-    if (!unresolved.empty())
+
+    if (!m_Offsets->RenderView.valid)
     {
-        initLog << "\nInitialization stopped: required 2009 function signatures remain unresolved.\n";
-        initLog << unresolved;
-        initLog << "\nNo VR hooks were installed.\n";
+        initLog << "\nRender-only initialization stopped: RenderView signature did not resolve uniquely.\n";
+        initLog << "  RenderView [client.dll]: " << m_Offsets->RenderView.failure << "\n";
+        initLog.flush();
         initLog.close();
-        errorMsg("The 2009 build's function hooks are not fully ported yet.\n"
-                 "No hooks were installed. See portal2vr_2009_init.log.");
+        GameCtorTrace("RenderView signature verification failed; no VR session or hooks were started.");
         return;
     }
 
-    if (!PORTAL2_2009_INTERFACE_VTABLES_VERIFIED || !PORTAL2_2009_FUNCTION_HOOK_ABIS_VERIFIED)
+    initLog << "\nRender-only signature verification:\n";
+    initLog << "  RenderView signature: PASS, client.dll+0x"
+        << std::hex << m_Offsets->RenderView.offset << std::dec << "\n";
+
+    const bool renderViewSlotMatches = RuntimeAuditVerifyInterfaceSlot(
+        initLog, "VEngineRenderView013 (engine)", m_EngineViewRender, 6,
+        reinterpret_cast<const void*>(m_Offsets->RenderView.address), modules);
+    if (!renderViewSlotMatches)
     {
-        initLog << "\nInitialization stopped: the 2009 vtable/calling-convention verification gates are disabled.\n";
-        initLog << "No hooks were installed.\n";
+        initLog << "Render-only initialization stopped: the live render interface did not match the signature-verified target.\n";
+        initLog.flush();
         initLog.close();
-        errorMsg("The 2009 interface vtables and function-hook ABIs are not fully verified yet.\n"
-                 "No hooks were installed. See portal2vr_2009_init.log.");
+        GameCtorTrace("RenderView live vtable did not match slot 6; no hook was installed.");
         return;
     }
 
-    m_VR = new VR(this);
+    GameCtorTrace("RenderView target matched the live engine render-interface vtable.");
+    initLog << "  RenderView vtable slot 6: PASS (exact function-pointer match).\n";
+
+    m_VR = new VR(this, true);
     if (!m_VR || !m_VR->m_IsInitialized)
     {
-        initLog << "\nInitialization stopped: OpenVR initialization failed.\n";
+        initLog << "\nInitialization stopped: OpenVR/D3D9-Vulkan bridge setup did not complete.\n";
+        initLog.flush();
         initLog.close();
-        errorMsg("OpenVR initialization did not complete. No game hooks were installed.");
+        GameCtorTrace("Render-only VR session initialization failed.");
         return;
     }
 
-    m_Hooks = new Hooks(this);
+    m_Hooks = new Hooks(this, true);
     if (!m_Hooks || !m_Hooks->IsReady())
     {
-        initLog << "\nInitialization stopped: the complete hook set could not be created/enabled.\n";
+        initLog << "\nInitialization stopped: the isolated RenderView hook could not be enabled.\n";
+        initLog.flush();
         initLog.close();
-        errorMsg("Portal 2 VR could not install its complete hook set.\nSee portal2vr_2009_init.log.");
+        GameCtorTrace("Isolated RenderView hook initialization failed.");
         return;
     }
 
     m_Initialized = true;
-    initLog << "All required signatures resolved and hooks initialized.\n";
+    initLog << "Render-only VR path initialized successfully.\n";
+    initLog << "Enabled hook: RenderView only. Controller, portal, weapon and other gameplay hooks remain disabled.\n";
+    initLog << "Stereo eye targets are submitted by the DXVK D3D9 Present bridge.\n";
     initLog.close();
 }
 
