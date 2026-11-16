@@ -68,6 +68,30 @@ namespace
         }
         return true;
     }
+
+    void LogRequiredModuleStatus(const char* phase)
+    {
+        const HMODULE client = GetModuleHandleA("client.dll");
+        const HMODULE engine = GetModuleHandleA("engine.dll");
+        const HMODULE materialSystem = GetModuleHandleA("materialsystem.dll");
+        const HMODULE server = GetModuleHandleA("server.dll");
+        const HMODULE vgui2 = GetModuleHandleA("vgui2.dll");
+        const HMODULE vguiSurface = GetModuleHandleA("vguimatsurface.dll");
+
+        char message[768]{};
+        sprintf_s(message,
+            "Module status (%s): client.dll=%s@%p; engine.dll=%s@%p; "
+            "materialsystem.dll=%s@%p; server.dll=%s@%p; "
+            "vgui2.dll=%s@%p; vguimatsurface.dll=%s@%p",
+            phase ? phase : "unknown",
+            client ? "loaded" : "MISSING", client,
+            engine ? "loaded" : "MISSING", engine,
+            materialSystem ? "loaded" : "MISSING", materialSystem,
+            server ? "loaded" : "MISSING", server,
+            vgui2 ? "loaded" : "MISSING", vgui2,
+            vguiSurface ? "loaded" : "MISSING", vguiSurface);
+        GameCtorTrace(message);
+    }
 }
 
 Game::Game(bool diagnosticsOnly)
@@ -95,8 +119,18 @@ Game::Game(bool diagnosticsOnly)
     // Use one global deadline. The previous per-module wait could take twelve minutes.
     const ULONGLONG deadline = GetTickCount64() + 180000ULL;
     GameCtorTrace("Game::Game waiting for required Source modules (maximum 180 seconds).");
+    LogRequiredModuleStatus("before wait");
+    ULONGLONG nextModuleReport = GetTickCount64() + 1000ULL;
     while (!AllRequiredModulesLoaded() && GetTickCount64() < deadline)
+    {
+        if (GetTickCount64() >= nextModuleReport)
+        {
+            LogRequiredModuleStatus("still waiting");
+            nextModuleReport = GetTickCount64() + 1000ULL;
+        }
         Sleep(250);
+    }
+    LogRequiredModuleStatus(AllRequiredModulesLoaded() ? "after wait: all present" : "after wait: timeout");
     GameCtorTrace(AllRequiredModulesLoaded() ? "Game::Game required Source modules are loaded." :
         "Game::Game timed out waiting for required Source modules.");
 
