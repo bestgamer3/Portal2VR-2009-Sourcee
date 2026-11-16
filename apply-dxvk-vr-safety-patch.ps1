@@ -79,7 +79,7 @@ $newResolve = @(
 ) -join $deviceNewline
 $device = Replace-SourceBlock $device $oldResolve $newResolve 'PresentEx eye-surface resolve block'
 
-$oldWait = '    g_D3DVR9->WaitDeviceIdle();'
+$oldWait = ([string][char]9) + 'g_D3DVR9->WaitDeviceIdle();'
 $newWait = @(
     '    if (g_D3DVR9 != nullptr)'
     '      g_D3DVR9->WaitDeviceIdle();'
