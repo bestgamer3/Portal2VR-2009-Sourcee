@@ -86,18 +86,19 @@ $newWait = @(
 ) -join $deviceNewline
 $device = Replace-SourceBlock $device $oldWait $newWait 'PresentEx D3D9 bridge wait call'
 
-$oldPresentCall = '    HRESULT result = m_implicitSwapchain->Present('
+$tab = [string][char]9
+$oldPresentCall = $tab + 'HRESULT result = m_implicitSwapchain->Present('
 $newPresentCall = @(
-    '    // Export the just-rendered menu/backbuffer before Present rotates the swapchain.'
-    '    if (g_Game != nullptr && g_Game->m_Initialized &&'
-    '        g_Game->m_VR != nullptr && g_Game->m_VR->m_IsInitialized &&'
-    '        g_D3DVR9 != nullptr) {'
-    '      const HRESULT backBufferResult = g_D3DVR9->GetBackBufferData(&g_Game->m_VR->m_VKBackBuffer);'
-    '      if (FAILED(backBufferResult))'
-    '        Logger::warn(str::format("Portal2VR: failed to refresh the D3D9 menu backbuffer (HRESULT ", backBufferResult, ")."));'
-    '    }'
+    ($tab + '    // Export the just-rendered menu/backbuffer before Present rotates the swapchain.')
+    ($tab + '    if (g_Game != nullptr && g_Game->m_Initialized &&')
+    ($tab + '        g_Game->m_VR != nullptr && g_Game->m_VR->m_IsInitialized &&')
+    ($tab + '        g_D3DVR9 != nullptr) {')
+    ($tab + '      const HRESULT backBufferResult = g_D3DVR9->GetBackBufferData(&g_Game->m_VR->m_VKBackBuffer);')
+    ($tab + '      if (FAILED(backBufferResult))')
+    ($tab + '        Logger::warn(str::format("Portal2VR: failed to refresh the D3D9 menu backbuffer (HRESULT ", backBufferResult, ")."));')
+    ($tab + '    }')
     ''
-    '    HRESULT result = m_implicitSwapchain->Present('
+    ($tab + 'HRESULT result = m_implicitSwapchain->Present(')
 ) -join $deviceNewline
 $device = Replace-SourceBlock $device $oldPresentCall $newPresentCall 'PresentEx backbuffer capture point'
 
