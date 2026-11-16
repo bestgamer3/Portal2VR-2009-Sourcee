@@ -39,6 +39,23 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 # Keep the DXVK fork/branch recorded by the original project's .gitmodules;
 # this is the branch that supplies the D3D9 VR extensions used by this project.
 Invoke-GitClone 'https://github.com/fholger/dxvk_l4d2vr.git' 'dxvk' 'msaa'
+
+# Pin DXVK to the exact D3D9/OpenVR source revision used by this integration.
+# The patch helper intentionally validates exact source blocks before editing.
+$dxvkCommit = '75167aa2859fe7118ae683e717b97303ad379efa'
+if (Test-Path -LiteralPath (Join-Path 'dxvk' '.git')) {
+    git -C dxvk fetch --depth 1 origin $dxvkCommit
+    if ($LASTEXITCODE -ne 0) { throw "Could not fetch pinned DXVK commit $dxvkCommit." }
+    git -C dxvk checkout --detach $dxvkCommit
+    if ($LASTEXITCODE -ne 0) { throw "Could not check out pinned DXVK commit $dxvkCommit." }
+    $actualDxvkCommit = (git -C dxvk rev-parse HEAD).Trim()
+    if ($actualDxvkCommit -ne $dxvkCommit) {
+        throw "DXVK commit mismatch: expected $dxvkCommit, got $actualDxvkCommit."
+    }
+    Write-Host "Using pinned DXVK commit: $actualDxvkCommit" -ForegroundColor Green
+} else {
+    Write-Host 'Using the existing non-git DXVK source folder; the integration patch performs strict source-block validation.' -ForegroundColor Yellow
+}
 # Pin MinHook to a known stable release rather than tracking a moving master branch.
 Invoke-GitClone 'https://github.com/TsudaKageyu/MinHook.git' 'thirdparty/minhook' 'v1.3.4'
 
