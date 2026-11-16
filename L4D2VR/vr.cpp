@@ -115,7 +115,17 @@ VR::VR(Game *game, bool renderOnly)
         return;
     }
 
-    g_D3DVR9->GetBackBufferData(&m_VKBackBuffer);
+    const HRESULT backBufferResult = g_D3DVR9->GetBackBufferData(&m_VKBackBuffer);
+    if (FAILED(backBufferResult) || m_VKBackBuffer.m_VRTexture.handle == nullptr)
+    {
+        char backBufferError[192]{};
+        sprintf_s(backBufferError,
+            "Could not export the D3D9 backbuffer to the Vulkan VR bridge (HRESULT 0x%08lX).",
+            static_cast<unsigned long>(backBufferResult));
+        Game::errorMsg(backBufferError);
+        return;
+    }
+
     m_Overlay = vr::VROverlay();
     if (!m_Overlay)
     {
@@ -459,12 +469,21 @@ void VR::SubmitVRTextures()
 
         //if (!m_Game->m_EngineClient->IsInGame())
         {
-            vr::VRCompositor()->Submit(vr::Eye_Left, &m_VKBlankTexture.m_VRTexture, NULL, vr::Submit_Default);
-            vr::VRCompositor()->Submit(vr::Eye_Right, &m_VKBlankTexture.m_VRTexture, NULL, vr::Submit_Default);
+            if (m_VKBlankTexture.m_VRTexture.handle != nullptr)
+            {
+                vr::VRCompositor()->Submit(vr::Eye_Left, &m_VKBlankTexture.m_VRTexture, nullptr, vr::Submit_Default);
+                vr::VRCompositor()->Submit(vr::Eye_Right, &m_VKBlankTexture.m_VRTexture, nullptr, vr::Submit_Default);
+            }
         }
 
         return;
     }
+    if (m_VKLeftEye.m_VRTexture.handle == nullptr || m_VKRightEye.m_VRTexture.handle == nullptr)
+    {
+        m_RenderedNewFrame = false;
+        return;
+    }
+
     vr::VROverlay()->HideOverlay(m_MainMenuHandle);
 
     //vr::VROverlay()->SetOverlayTexture(m_HUDHandle, &m_VKHUD.m_VRTexture);
