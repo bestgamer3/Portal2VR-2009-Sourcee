@@ -1,0 +1,13 @@
+# Visual Studio outputs
+L4D2VR/bin/
+L4D2VR/obj/
+.vs/
+*.user
+*.suo
+
+# Build logs
+portal2vr_2009_*_build.log
+
+# External dependencies cloned by bootstrap
+/dxvk/
+/thirdparty/minhook/

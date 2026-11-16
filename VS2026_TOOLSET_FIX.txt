@@ -1,0 +1,20 @@
+Visual Studio 2026 toolset fix
+===============================
+
+This source package is configured for Visual Studio 2026 (IDE version 18.x).
+The project PlatformToolset is v145. The v180 directory in the MSBuild error
+path refers to the Visual C++ MSBuild targets infrastructure; it is not the
+PlatformToolset value.
+
+Required Visual Studio Installer components:
+- Desktop development with C++
+- MSVC Build Tools for x86/x64 (latest; MSVC 14.50 or later)
+- Windows 10/11 SDK
+
+If v145 is still reported missing, open Visual Studio Installer > Modify >
+Individual components and make sure the x86/x64 MSVC Build Tools component
+is selected, then apply the changes and rerun build-win32-release.ps1.
+
+This change fixes the MSB8020 v143 toolset-selection error. It does not mean
+the Portal 2 2009 VR port is playable; the gameplay hooks remain fail-closed
+until their 2009 addresses and ABIs are verified.

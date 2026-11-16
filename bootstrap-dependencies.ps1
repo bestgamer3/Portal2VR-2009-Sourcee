@@ -1,13 +1,6 @@
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
 
-function Test-VulkanHeaders {
-    foreach ($candidate in @('dxvk/include/vulkan/vulkan.h', 'dxvk/include/vulkan/include/vulkan/vulkan.h')) {
-        if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $true }
-    }
-    return $false
-}
-
 function Invoke-GitClone([string]$Url, [string]$Path, [string]$Ref = '') {
     if (Test-Path -LiteralPath $Path) {
         $existing = Get-ChildItem -Force -LiteralPath $Path -ErrorAction SilentlyContinue
@@ -46,14 +39,6 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 # Keep the DXVK fork/branch recorded by the original project's .gitmodules;
 # this is the branch that supplies the D3D9 VR extensions used by this project.
 Invoke-GitClone 'https://github.com/fholger/dxvk_l4d2vr.git' 'dxvk' 'msaa'
-# The DXVK Vulkan-Headers directory is a nested git submodule in common DXVK revisions.
-# Populate only this dependency rather than recursively fetching unrelated DXVK submodules.
-if (-not (Test-VulkanHeaders)) {
-    git -C 'dxvk' submodule update --init --depth 1 -- 'include/vulkan'
-    if ($LASTEXITCODE -ne 0) {
-        throw 'Could not initialize DXVK Vulkan-Headers submodule (include/vulkan). Check the DXVK checkout and internet access.'
-    }
-}
 # Pin MinHook to a known stable release rather than tracking a moving master branch.
 Invoke-GitClone 'https://github.com/TsudaKageyu/MinHook.git' 'thirdparty/minhook' 'v1.3.4'
 
@@ -75,10 +60,6 @@ $required = @(
     'thirdparty/openvr/bin/win32/openvr_api.dll'
 )
 $missing = @($required | Where-Object { !(Test-Path -LiteralPath $_ -PathType Leaf) })
-if (-not (Test-VulkanHeaders)) {
-    Write-Host 'MISSING: DXVK Vulkan-Headers (include/vulkan/vulkan.h)' -ForegroundColor Red
-    $missing += 'DXVK Vulkan-Headers'
-}
 if ($missing.Count -gt 0) {
     $missing | ForEach-Object { Write-Host "MISSING: $_" -ForegroundColor Red }
     throw 'Dependency validation failed. The checked-out DXVK branch or MinHook release does not contain the files required by this project.'

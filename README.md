@@ -88,18 +88,3 @@ The prior user-provided build log showed that an earlier source revision compile
 ## If the build fails
 
 Send the full `portal2vr_2009_release_build.log` and the first compiler/linker error block. Warnings alone do not necessarily mean the build failed; check whether MSBuild ends with the `l4d2vr.vcxproj -> ...\d3d9.dll` line.
-
-## Independent SteamVR compositor test
-
-The package now includes a separate x86 Vulkan/OpenVR smoke-test application. This is the next diagnostic step for the reported case where `hl2.exe` remains visible on the monitor while the Rift CV1 is blank.
-
-Build it separately from the Portal 2 proxy:
-
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-.\build-openvr-vulkan-smoketest.ps1 -Rebuild
-```
-
-Run `tools\OpenVRVulkanSmokeTest\bin\Release\Portal2VR_OpenVR_VulkanSmokeTest.exe` while SteamVR is running and Portal 2 is closed. It submits a blue/cyan left-eye pattern and an orange right-eye pattern. Press a key in its console to stop. Send the resulting `portal2vr_openvr_vulkan_smoketest.log`.
-
-This is a standalone diagnostic, **not a playable Portal 2 VR build** and it does not change the existing fail-closed 2009 gameplay-hook gates. See [OPENVR_VULKAN_SMOKETEST.md](OPENVR_VULKAN_SMOKETEST.md) for details.

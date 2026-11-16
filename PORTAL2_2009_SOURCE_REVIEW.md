@@ -38,9 +38,3 @@ The package passes:
 - MSVC RTTI/vtable static analysis
 
 A Windows/MSVC rebuild and live SteamVR test have not been run for this source review revision.
-
-## Additional independent compositor test
-
-A standalone `tools/OpenVRVulkanSmokeTest` project has been added. It initializes an OpenVR scene session, creates a Vulkan device on the GPU selected by `IVRSystem::GetOutputDevice`, creates two distinct static eye images, and submits them to `IVRCompositor`. It deliberately does not load or depend on `hl2.exe`, the D3D9 proxy, the Portal 2 game interfaces, or the incomplete gameplay hooks. Build and run instructions are in `OPENVR_VULKAN_SMOKETEST.md`.
-
-This isolates OpenVR/Vulkan compositor submission from the Portal 2 integration. The executable has not been compiled or runtime-tested in Windows in this environment.
