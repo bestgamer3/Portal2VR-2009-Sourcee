@@ -17,7 +17,7 @@ namespace
     void GameCtorTrace(const char* message)
     {
         OutputDebugStringA(message ? message : "(null)");
-        OutputDebugStringA("\\r\\n");
+        OutputDebugStringA("\r\n");
 
         char tempPath[MAX_PATH]{};
         const DWORD length = GetTempPathA(MAX_PATH, tempPath);
@@ -37,7 +37,7 @@ namespace
         DWORD written = 0;
         WriteFile(file, message ? message : "(null)",
             static_cast<DWORD>(lstrlenA(message ? message : "(null)")), &written, nullptr);
-        WriteFile(file, "\\r\\n", 2, &written, nullptr);
+        WriteFile(file, "\r\n", 2, &written, nullptr);
         CloseHandle(file);
     }
 
