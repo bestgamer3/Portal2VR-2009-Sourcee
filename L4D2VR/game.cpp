@@ -43,8 +43,8 @@ namespace
     }
 }
 
-Game::Game(bool diagnosticsOnly)
-    : m_DiagnosticsOnly(diagnosticsOnly)
+Game::Game(bool diagnosticsOnly, bool theaterOnly)
+    : m_DiagnosticsOnly(diagnosticsOnly), m_TheaterOnly(theaterOnly)
 {
     // Some original SDK helper wrappers read g_Game during initialization.
     // Publish the partially constructed object before any VR/helper setup.
@@ -122,7 +122,28 @@ Game::Game(bool diagnosticsOnly)
         RuntimeAuditDumpInterface(initLog, "VGUI_InputInternal001", m_VguiInput, 128, modules);
         RuntimeAuditDumpInterface(initLog, "VGUI_Surface031", m_VguiSurface, 180, modules);
 
-        m_Offsets = new Offsets();
+        if (m_TheaterOnly)
+    {
+        initLog << "\\nStarting safe SteamVR theater mode.\\n";
+        initLog << "No Source detours or gameplay hooks will be installed.\\n";
+
+        m_VR = new VR(this);
+        if (!m_VR || !m_VR->m_IsInitialized)
+        {
+            initLog << "\\nTheater-mode OpenVR initialization failed.\\n";
+            initLog.close();
+            errorMsg("SteamVR theater mode could not initialize.\\nSee portal2vr_2009_init.log.");
+            return;
+        }
+
+        m_Initialized = true;
+        initLog << "\\nSteamVR theater mode initialized. The desktop game image will be shown on a head-locked VR overlay.\\n";
+        initLog << "This mode does not enable stereoscopic 6DOF gameplay or motion-controller gameplay hooks.\\n";
+        initLog.close();
+        return;
+    }
+
+    m_Offsets = new Offsets();
         initLog << "\nRequired hook target signature results (all 37 targets):\n";
         WriteOffsetStatus(initLog, "RenderView", m_Offsets->RenderView);
         WriteOffsetStatus(initLog, "CalcViewModelView", m_Offsets->CalcViewModelView);
